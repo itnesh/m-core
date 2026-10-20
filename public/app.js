@@ -108,6 +108,7 @@ const S = {
   openId: null,
   editMsgId: null,
   editLinkId: null,
+  linkFilter: null,
 };
 function loadPref(k, d) { try { const v = JSON.parse(localStorage.getItem('mcore:pref:' + k)); return v ?? d; } catch { return d; } }
 function savePref(k, v) { try { localStorage.setItem('mcore:pref:' + k, JSON.stringify(v)); } catch {} }
@@ -188,7 +189,8 @@ function renderList() {
       <div class="bar" style="--pc:${p.c}" data-act="prio" title="Prio: ${p.n}"></div>
       <div class="main">
         <div class="ttl ${t.title ? '' : 'empty-ttl'}">${esc(t.title || 'Ohne Titel')}</div>
-        ${t.description ? `<div class="desc">${esc(t.description)}</div>` : ''}
+        ${t.status === 'Frozen' && ((t.waitFor || []).length || t.waitReason) ? `<div class="desc waitline">⏸ wartet auf ${esc((t.persons || []).filter(p => (t.waitFor || []).includes(p.id)).map(p => p.name).join(', ') || '?')}${t.waitReason ? ' - ' + esc(t.waitReason) : ''}</div>`
+          : t.description ? `<div class="desc">${esc(t.description)}</div>` : ''}
       </div>
       <div class="qlinks">${urls.slice(0, 6).map(u => `
         <a class="qlink" href="${esc(u.url)}" target="_blank" rel="noopener" title="${esc(u.title || u.url)}"><img src="${ICON(u.type)}" alt=""></a>`).join('')}</div>
@@ -256,7 +258,7 @@ $('#fStatus').innerHTML = STATUSES.map(s => `<option>${s}</option>`).join('');
 $('#fProg').innerHTML = Array.from({ length: 11 }, (_, i) => `<button data-v="${i * 10}">${i * 10}</button>`).join('');
 
 function openTask(id, focusTitle = false) {
-  S.openId = id; S.editMsgId = null; S.editLinkId = null;
+  S.openId = id; S.editMsgId = null; S.editLinkId = null; S.linkFilter = null;
   $('#chatInput').innerHTML = '';
   $('#drawer').classList.remove('hidden'); $('#drawerBg').classList.remove('hidden');
   renderDrawer(true);
@@ -307,28 +309,67 @@ $('#btnClearDeadline').onclick = () => upd(S.openId, { deadline: '' });
 $('#fPrio').onclick = e => { const b = e.target.closest('button'); if (b) upd(S.openId, { prio: +b.dataset.v }); };
 $('#fProg').onclick = e => { const b = e.target.closest('button'); if (b) upd(S.openId, { progress: +b.dataset.v }); };
 
-/* Personen */
-function renderPersons(t) {
-  $('#persons').innerHTML = (t.persons || []).map(p => `
-    <div class="person" data-id="${p.id}"><span class="ini">${esc(initials(p.name))}</span>
-      <div><div class="nm">${esc(p.name)}</div><div class="rl">${esc(p.role || '')}</div></div>
-      <button class="x" data-del="${p.id}" title="Entfernen">${svg.x}</button></div>`).join('');
+/* Personen (Tags) + Frozen/Wartet auf */
+function knownPersons() {
+  const m = new Map();
+  S.tasks.forEach(t => (t.persons || []).forEach(p => { const k = (p.name || '').toLowerCase(); if (k && !m.has(k)) m.set(k, p); }));
+  return [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
-$('#personForm').onsubmit = e => {
-  e.preventDefault();
-  const name = $('#pName').value.trim(); if (!name) return;
-  const t = task(S.openId);
-  upd(t.id, { persons: [...(t.persons || []), { id: uid(), name, role: $('#pRole').value.trim() }] });
-  $('#pName').value = ''; $('#pRole').value = ''; $('#pName').focus();
-};
+function renderPersons(t) {
+  const ps = t.persons || [], wf = t.waitFor || [];
+  const frozen = t.status === 'Frozen';
+  $('#persons').innerHTML = ps.map(p => `
+    <span class="tag ${frozen && wf.includes(p.id) ? 'waiting' : ''}" data-id="${p.id}" title="Klick: Rolle ändern">
+      <span class="ini">${esc(initials(p.name))}</span>${esc(p.name)}${p.role ? `<em>${esc(p.role)}</em>` : ''}
+      <button class="tx" data-del="${p.id}" title="Entfernen">×</button></span>`).join('');
+  const have = new Set(ps.map(p => p.name.toLowerCase()));
+  $('#personList').innerHTML = knownPersons().filter(p => !have.has(p.name.toLowerCase()))
+    .map(p => `<option value="${esc(p.name)}">${esc(p.role || '')}</option>`).join('');
+  $('#waitBox').classList.toggle('hidden', !frozen);
+  if (frozen) {
+    $('#waitWho').innerHTML = ps.length
+      ? ps.map(p => `<button class="wchip ${wf.includes(p.id) ? 'on' : ''}" data-w="${p.id}">${esc(p.name)}</button>`).join('')
+      : '<span class="muted small">Zuerst Person bei Involved hinzufügen.</span>';
+    setVal($('#wReason'), t.waitReason);
+  }
+}
+function addPerson(raw) {
+  const [n, r] = String(raw).split('/').map(s => s.trim()); if (!n) return;
+  const t = task(S.openId); const ps = t.persons || [];
+  if (ps.some(p => p.name.toLowerCase() === n.toLowerCase())) return;
+  const k = knownPersons().find(p => p.name.toLowerCase() === n.toLowerCase());
+  upd(t.id, { persons: [...ps, { id: uid(), name: k ? k.name : n, role: r || k?.role || '' }] });
+}
+$('#pInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addPerson(e.target.value); e.target.value = ''; } });
+$('#pInput').addEventListener('input', e => { if (e.inputType === 'insertReplacementText' || !e.inputType) { addPerson(e.target.value); e.target.value = ''; } });
+$('#tagbox').addEventListener('click', e => { if (e.target === $('#tagbox') || e.target === $('#persons')) $('#pInput').focus(); });
 $('#persons').onclick = e => {
-  const d = e.target.closest('[data-del]'); if (!d) return;
-  const t = task(S.openId); upd(t.id, { persons: t.persons.filter(p => p.id !== d.dataset.del) });
+  const t = task(S.openId);
+  const d = e.target.closest('[data-del]');
+  if (d) return upd(t.id, { persons: t.persons.filter(p => p.id !== d.dataset.del), waitFor: (t.waitFor || []).filter(x => x !== d.dataset.del) });
+  const tag = e.target.closest('.tag'); if (!tag) return;
+  const p = t.persons.find(x => x.id === tag.dataset.id);
+  const r = prompt(`Rolle von ${p.name}`, p.role || ''); if (r === null) return;
+  upd(t.id, { persons: t.persons.map(x => x.id === p.id ? { ...x, role: r.trim() } : x) });
 };
+$('#waitWho').onclick = e => {
+  const b = e.target.closest('[data-w]'); if (!b) return;
+  const t = task(S.openId); const wf = new Set(t.waitFor || []);
+  wf.has(b.dataset.w) ? wf.delete(b.dataset.w) : wf.add(b.dataset.w);
+  upd(t.id, { waitFor: [...wf], waitSince: t.waitSince || Date.now() });
+};
+const saveReason = debounce(v => upd(S.openId, { waitReason: v }));
+$('#wReason').addEventListener('input', e => saveReason(e.target.value.trim()));
 
 /* Links */
+$('#lType').innerHTML = '<option value="auto">Typ: Auto</option>' + LINK_TYPES.map(x => `<option>${x}</option>`).join('');
 function renderLinks(t) {
-  const urls = t.urls || [];
+  const all = t.urls || [];
+  const types = [...new Set(all.map(u => u.type || 'Others'))];
+  if (S.linkFilter && !types.includes(S.linkFilter)) S.linkFilter = null;
+  $('#linkFilter').innerHTML = types.length > 1 ? `<button class="chip ${!S.linkFilter ? 'on' : ''}" data-lf="">Alle ${all.length}</button>` +
+    types.map(x => `<button class="chip ${S.linkFilter === x ? 'on' : ''}" data-lf="${x}"><img src="${ICON(x)}" alt="">${x} ${all.filter(u => (u.type || 'Others') === x).length}</button>`).join('') : '';
+  const urls = S.linkFilter ? all.filter(u => (u.type || 'Others') === S.linkFilter) : all;
   $('#links').innerHTML = urls.length ? urls.map(u => u.id === S.editLinkId ? `
     <div class="lnk-edit" data-id="${u.id}">
       <input data-f="title" value="${esc(u.title)}" placeholder="Titel">
@@ -349,9 +390,13 @@ $('#linkForm').addEventListener('keydown', e => {
   if (e.key !== 'Enter') return; e.preventDefault();
   const url = normUrl($('#lUrl').value); if (!url) return;
   const t = task(S.openId);
-  upd(t.id, { urls: [...(t.urls || []), { id: uid(), url, title: $('#lTitle').value.trim() || hostOf(url), type: detectType(url) }] });
-  $('#lUrl').value = ''; $('#lTitle').value = ''; $('#lUrl').focus();
+  const ty = $('#lType').value === 'auto' ? detectType(url) : $('#lType').value;
+  upd(t.id, { urls: [...(t.urls || []), { id: uid(), url, title: $('#lTitle').value.trim() || hostOf(url), type: ty }] });
+  $('#lUrl').value = ''; $('#lTitle').value = ''; $('#lType').value = 'auto'; $('#lType').dataset.manual = ''; $('#lUrl').focus();
 });
+$('#lUrl').addEventListener('input', e => { const u = e.target.value.trim(); if (u && $('#lType').dataset.manual !== '1') $('#lType').value = detectType(u) === 'Others' ? 'auto' : detectType(u); });
+$('#lType').addEventListener('change', e => e.target.dataset.manual = e.target.value === 'auto' ? '' : '1');
+$('#linkFilter').onclick = e => { const b = e.target.closest('[data-lf]'); if (!b) return; S.linkFilter = b.dataset.lf || null; renderLinks(task(S.openId)); };
 $('#links').addEventListener('click', e => {
   const a = e.target.closest('[data-la]'); if (!a) return;
   e.preventDefault(); e.stopPropagation();
@@ -392,11 +437,12 @@ function sendChat() {
 $('#btnSend').onclick = sendChat;
 $('#btnCancelEdit').onclick = () => { S.editMsgId = null; $('#chatInput').innerHTML = ''; $('#btnCancelEdit').classList.add('hidden'); renderChat(task(S.openId)); };
 $('#chatInput').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendChat(); } });
-$('.toolbar').addEventListener('mousedown', e => {
+$$('.toolbar').forEach(tb => tb.addEventListener('mousedown', e => {
   const b = e.target.closest('[data-cmd]'); if (!b) return; e.preventDefault();
+  const ed = document.getElementById(tb.dataset.target); if (ed && !ed.contains(document.activeElement) && document.activeElement !== ed) ed.focus();
   if (b.dataset.cmd === 'createLink') { const u = prompt('URL'); if (u) document.execCommand('createLink', false, normUrl(u)); }
   else document.execCommand(b.dataset.cmd);
-});
+}));
 $('#chat').addEventListener('click', e => {
   const b = e.target.closest('[data-ca]'); if (!b) return;
   const mid = b.closest('.msg').dataset.id; const t = task(S.openId);
@@ -413,7 +459,7 @@ function renderTodos() {
     <li class="todo ${t.done ? 'is-done' : ''}" data-id="${t.id}">
       <button class="chk" data-ta="chk" title="${t.done ? 'Wieder öffnen' : 'Erledigt'}"></button>
       <div style="flex:1;min-width:0">
-        <div class="txt" data-ta="txt" title="Doppelklick zum Bearbeiten">${linkify(t.text)}</div>
+        <div class="txt" data-ta="txt" title="Doppelklick zum Bearbeiten">${todoHtml(t)}</div>
         <div class="meta">${t.done ? 'erledigt ' + fmtTs(t.doneAt) : fmtTs(t.createdAt)}</div>
       </div>
       <button class="del" data-ta="del" title="Löschen">${svg.x}</button>
@@ -424,10 +470,14 @@ function renderTodos() {
   $('#todoDoneCount').textContent = `(${done.length})`;
   $('#todoDoneWrap').classList.toggle('hidden', !done.length);
 }
-$('#todoForm').onsubmit = e => {
-  e.preventDefault(); const v = $('#todoInput').value.trim(); if (!v) return;
-  store.add('todos', { text: v, done: false }); $('#todoInput').value = '';
-};
+const todoHtml = t => t.html ? clean(t.html) : linkify(t.text);
+function addTodo() {
+  const html = clean($('#todoInput').innerHTML.trim()); const text = stripHtml(html).trim();
+  if (!text) return;
+  store.add('todos', { html, text, done: false }); $('#todoInput').innerHTML = '';
+}
+$('#btnTodoAdd').onclick = addTodo;
+$('#todoInput').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); addTodo(); } });
 function todoClick(e) {
   const el = e.target.closest('[data-ta]'); if (!el) return;
   const id = el.closest('.todo').dataset.id; const t = S.todos.find(x => x.id === id);
@@ -437,15 +487,16 @@ function todoClick(e) {
 function todoEdit(e) {
   const el = e.target.closest('[data-ta=txt]'); if (!el || e.target.closest('a')) return;
   const id = el.closest('.todo').dataset.id; const t = S.todos.find(x => x.id === id);
-  el.textContent = t.text; el.contentEditable = 'true'; el.focus();
+  if (el.isContentEditable) return;
+  el.innerHTML = todoHtml(t); el.contentEditable = 'true'; el.focus();
   document.getSelection().selectAllChildren(el); document.getSelection().collapseToEnd();
   const finish = save => {
     el.contentEditable = 'false'; el.onblur = el.onkeydown = null;
-    const v = el.textContent.trim();
-    if (save && v && v !== t.text) store.update('todos', id, { text: v }); else renderTodos();
+    const html = clean(el.innerHTML.trim()); const text = stripHtml(html).trim();
+    if (save && text && html !== t.html) store.update('todos', id, { html, text }); else renderTodos();
   };
   el.onblur = () => finish(true);
-  el.onkeydown = k => { if (k.key === 'Enter' && !k.shiftKey) { k.preventDefault(); el.blur(); } if (k.key === 'Escape') finish(false); };
+  el.onkeydown = k => { if (k.key === 'Enter' && (k.ctrlKey || k.metaKey)) { k.preventDefault(); el.blur(); } if (k.key === 'Escape') finish(false); };
 }
 ['#todoList', '#todoDoneList'].forEach(s => { $(s).addEventListener('click', todoClick); $(s).addEventListener('dblclick', todoEdit); });
 

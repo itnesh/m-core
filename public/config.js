@@ -12,5 +12,5 @@ export const CONFIG = {
     messagingSenderId: "398597666180",
     appId: "1:398597666180:web:3e1b24e831aa206fd699d1"
   },
-  allowedEmail: ""
+  allowedEmail: "erdinmatthias@gmail.com"
 };

@@ -66,9 +66,19 @@
         <h2>2do</h2>
         <span id="todoCount" class="pill soft"></span>
       </div>
-      <form id="todoForm" class="todo-form">
-        <input id="todoInput" placeholder="Neues 2do … Enter" autocomplete="off">
-      </form>
+      <div class="editor todo-editor">
+        <div class="toolbar" data-target="todoInput">
+          <button data-cmd="bold" title="Bold"><b>B</b></button>
+          <button data-cmd="italic" title="Italic"><i>I</i></button>
+          <button data-cmd="underline" title="Underline"><u>U</u></button>
+          <button data-cmd="insertUnorderedList" title="Liste">•</button>
+          <button data-cmd="createLink" title="Link">🔗</button>
+          <span class="grow"></span>
+          <span class="muted small hint">Ctrl+Enter</span>
+          <button id="btnTodoAdd" class="btn small primary">Hinzufügen</button>
+        </div>
+        <div id="todoInput" class="rte" contenteditable="true" data-ph="Neues 2do / Notiz … (T)"></div>
+      </div>
       <ul id="todoList" class="todo-list"></ul>
       <details id="todoDoneWrap" class="todo-done">
         <summary>Erledigt <span id="todoDoneCount"></span></summary>
@@ -96,7 +106,7 @@
     <!-- Details -->
     <div class="col col-details">
       <label class="lbl">Description</label>
-      <textarea id="fDesc" rows="3" placeholder="Kurzbeschrieb"></textarea>
+      <textarea id="fDesc" rows="9" placeholder="Beschreibung"></textarea>
 
       <div class="grid2">
         <div><label class="lbl">Status</label><select id="fStatus"></select></div>
@@ -122,12 +132,18 @@
       </div>
 
       <label class="lbl">Involved</label>
-      <div id="persons" class="persons"></div>
-      <form id="personForm" class="inline-form">
-        <input id="pName" placeholder="Name">
-        <input id="pRole" placeholder="Rolle">
-        <button class="btn small">+</button>
-      </form>
+      <div class="tagbox" id="tagbox">
+        <div id="persons" class="tags"></div>
+        <input id="pInput" list="personList" placeholder="Person + Enter  (Name / Rolle)" autocomplete="off">
+      </div>
+      <datalist id="personList"></datalist>
+
+      <div id="waitBox" class="wait hidden">
+        <label class="lbl">⏸ Wartet auf</label>
+        <div id="waitWho" class="wait-who"></div>
+        <label class="lbl">Grund</label>
+        <textarea id="wReason" rows="3" placeholder="Warum / worauf wird gewartet?"></textarea>
+      </div>
     </div>
 
     <!-- Links -->
@@ -135,8 +151,12 @@
       <div class="col-head"><h3>URLs</h3></div>
       <form id="linkForm" class="link-form">
         <input id="lUrl" placeholder="URL einfügen + Enter" autocomplete="off">
-        <input id="lTitle" placeholder="Titel (optional)" autocomplete="off">
+        <div class="row2">
+          <input id="lTitle" placeholder="Titel (optional)" autocomplete="off">
+          <select id="lType" title="Typ"></select>
+        </div>
       </form>
+      <div id="linkFilter" class="chips"></div>
       <div id="links" class="links"></div>
     </div>
 
@@ -144,7 +164,7 @@
     <div class="col col-chat">
       <div class="col-head"><h3>Chat</h3><span class="muted small">Ctrl+Enter senden</span></div>
       <div class="editor">
-        <div class="toolbar">
+        <div class="toolbar" data-target="chatInput">
           <button data-cmd="bold" title="Bold"><b>B</b></button>
           <button data-cmd="italic" title="Italic"><i>I</i></button>
           <button data-cmd="underline" title="Underline"><u>U</u></button>
