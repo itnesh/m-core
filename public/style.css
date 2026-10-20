@@ -308,3 +308,7 @@ h3{font-size:14px;margin:0;font-weight:700}
 .todo .txt p{margin:0}
 .todo .txt[contenteditable="true"]{padding:6px 8px;white-space:normal}
 .todo .txt{white-space:normal}
+
+.waits{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.wrow{display:grid;grid-template-columns:minmax(110px,40%) 1fr 24px;gap:6px;align-items:center}
+.wrow select,.wrow input{padding:6px 8px!important}

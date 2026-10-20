@@ -135,6 +135,15 @@ function normUrl(u) { u = u.trim(); if (!u) return ''; if (!/^[a-z][a-z0-9+.-]*:
 function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } }
 function linkify(text) { return esc(text).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>'); }
 function stripHtml(h) { const d = document.createElement('div'); d.innerHTML = h || ''; return d.textContent || ''; }
+function waitsOf(t) {
+  if (t.waits) return t.waits;
+  if ((t.waitFor || []).length || t.waitReason) return (t.waitFor?.length ? t.waitFor : ['']).map((p, i) => ({ id: 'w' + i, personId: p, reason: i ? '' : (t.waitReason || ''), since: t.waitSince || 0 }));
+  return [];
+}
+function waitText(t) {
+  const ps = t.persons || [];
+  return waitsOf(t).map(w => { const n = ps.find(p => p.id === w.personId)?.name; return [n, w.reason].filter(Boolean).join(': '); }).filter(Boolean).join(' · ') || 'wartet';
+}
 function initials(n) { return (n || '?').split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase(); }
 
 /* ================= Sidebar ================= */
@@ -189,7 +198,7 @@ function renderList() {
       <div class="bar" style="--pc:${p.c}" data-act="prio" title="Prio: ${p.n}"></div>
       <div class="main">
         <div class="ttl ${t.title ? '' : 'empty-ttl'}">${esc(t.title || 'Ohne Titel')}</div>
-        ${t.status === 'Frozen' && ((t.waitFor || []).length || t.waitReason) ? `<div class="desc waitline">⏸ wartet auf ${esc((t.persons || []).filter(p => (t.waitFor || []).includes(p.id)).map(p => p.name).join(', ') || '?')}${t.waitReason ? ' - ' + esc(t.waitReason) : ''}</div>`
+        ${t.status === 'Frozen' && waitsOf(t).length ? `<div class="desc waitline">⏸ ${esc(waitText(t))}</div>`
           : t.description ? `<div class="desc">${esc(t.description)}</div>` : ''}
       </div>
       <div class="qlinks">${urls.slice(0, 6).map(u => `
@@ -316,29 +325,24 @@ function knownPersons() {
   return [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 function renderPersons(t) {
-  const ps = t.persons || [], wf = t.waitFor || [];
+  const ps = t.persons || [];
   const frozen = t.status === 'Frozen';
   $('#persons').innerHTML = ps.map(p => `
-    <span class="tag ${frozen && wf.includes(p.id) ? 'waiting' : ''}" data-id="${p.id}" title="Klick: Rolle ändern">
+    <span class="tag ${frozen && waitsOf(t).some(w => w.personId === p.id) ? 'waiting' : ''}" data-id="${p.id}" title="Klick: Rolle ändern">
       <span class="ini">${esc(initials(p.name))}</span>${esc(p.name)}${p.role ? `<em>${esc(p.role)}</em>` : ''}
       <button class="tx" data-del="${p.id}" title="Entfernen">×</button></span>`).join('');
   const have = new Set(ps.map(p => p.name.toLowerCase()));
   $('#personList').innerHTML = knownPersons().filter(p => !have.has(p.name.toLowerCase()))
     .map(p => `<option value="${esc(p.name)}">${esc(p.role || '')}</option>`).join('');
   $('#waitBox').classList.toggle('hidden', !frozen);
-  if (frozen) {
-    $('#waitWho').innerHTML = ps.length
-      ? ps.map(p => `<button class="wchip ${wf.includes(p.id) ? 'on' : ''}" data-w="${p.id}">${esc(p.name)}</button>`).join('')
-      : '<span class="muted small">Zuerst Person bei Involved hinzufügen.</span>';
-    setVal($('#wReason'), t.waitReason);
-  }
+  if (frozen) renderWaits(t);
 }
 function addPerson(raw) {
   const [n, r] = String(raw).split('/').map(s => s.trim()); if (!n) return;
   const t = task(S.openId); const ps = t.persons || [];
   if (ps.some(p => p.name.toLowerCase() === n.toLowerCase())) return;
   const k = knownPersons().find(p => p.name.toLowerCase() === n.toLowerCase());
-  upd(t.id, { persons: [...ps, { id: uid(), name: k ? k.name : n, role: r || k?.role || '' }] });
+  upd(t.id, { persons: [...ps, { id: uid(), name: k ? k.name : n, role: r || '' }] });
 }
 $('#pInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addPerson(e.target.value); e.target.value = ''; } });
 $('#pInput').addEventListener('input', e => { if (e.inputType === 'insertReplacementText' || !e.inputType) { addPerson(e.target.value); e.target.value = ''; } });
@@ -346,20 +350,41 @@ $('#tagbox').addEventListener('click', e => { if (e.target === $('#tagbox') || e
 $('#persons').onclick = e => {
   const t = task(S.openId);
   const d = e.target.closest('[data-del]');
-  if (d) return upd(t.id, { persons: t.persons.filter(p => p.id !== d.dataset.del), waitFor: (t.waitFor || []).filter(x => x !== d.dataset.del) });
+  if (d) return upd(t.id, { persons: t.persons.filter(p => p.id !== d.dataset.del), waits: waitsOf(t).map(w => w.personId === d.dataset.del ? { ...w, personId: '' } : w) });
   const tag = e.target.closest('.tag'); if (!tag) return;
   const p = t.persons.find(x => x.id === tag.dataset.id);
   const r = prompt(`Rolle von ${p.name}`, p.role || ''); if (r === null) return;
   upd(t.id, { persons: t.persons.map(x => x.id === p.id ? { ...x, role: r.trim() } : x) });
 };
-$('#waitWho').onclick = e => {
-  const b = e.target.closest('[data-w]'); if (!b) return;
-  const t = task(S.openId); const wf = new Set(t.waitFor || []);
-  wf.has(b.dataset.w) ? wf.delete(b.dataset.w) : wf.add(b.dataset.w);
-  upd(t.id, { waitFor: [...wf], waitSince: t.waitSince || Date.now() });
+function renderWaits(t) {
+  if ($('#waits').contains(document.activeElement)) return;
+  const ps = t.persons || [];
+  const ws = waitsOf(t);
+  $('#waits').innerHTML = ws.map(w => `
+    <div class="wrow" data-id="${w.id}">
+      <select data-wf="person"><option value="">– allgemein –</option>${ps.map(p => `<option value="${p.id}" ${p.id === w.personId ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>
+      <input data-wf="reason" value="${esc(w.reason)}" placeholder="worauf? z.B. OK, Berechtigung">
+      <button class="x" data-wdel="${w.id}" title="Entfernen">${svg.x}</button>
+    </div>`).join('') || '<div class="muted small">Auf niemanden. „+ Eintrag“ zum Erfassen.</div>';
+}
+function readWaits() {
+  const t = task(S.openId); const old = waitsOf(t);
+  return $$('#waits .wrow').map(r => ({ id: r.dataset.id, personId: r.querySelector('[data-wf=person]').value, reason: r.querySelector('[data-wf=reason]').value.trim(), since: old.find(o => o.id === r.dataset.id)?.since || Date.now() }));
+}
+const saveWaits = debounce(() => upd(S.openId, { waits: readWaits() }), 350);
+$('#waits').addEventListener('input', saveWaits);
+$('#waits').addEventListener('change', () => upd(S.openId, { waits: readWaits() }));
+$('#waits').addEventListener('focusout', () => setTimeout(() => { if (!$('#waits').contains(document.activeElement)) renderWaits(task(S.openId)); }, 50));
+$('#waits').addEventListener('click', e => {
+  const d = e.target.closest('[data-wdel]'); if (!d) return;
+  const t = task(S.openId); upd(t.id, { waits: waitsOf(t).filter(w => w.id !== d.dataset.wdel) });
+  setTimeout(() => renderWaits(task(S.openId)), 0);
+});
+$('#btnAddWait').onclick = () => {
+  const t = task(S.openId); const id = uid();
+  upd(t.id, { waits: [...waitsOf(t), { id, personId: '', reason: '', since: Date.now() }] });
+  setTimeout(() => { renderWaits(task(S.openId)); $(`#waits [data-id="${id}"] select`)?.focus(); }, 30);
 };
-const saveReason = debounce(v => upd(S.openId, { waitReason: v }));
-$('#wReason').addEventListener('input', e => saveReason(e.target.value.trim()));
 
 /* Links */
 $('#lType').innerHTML = '<option value="auto">Typ: Auto</option>' + LINK_TYPES.map(x => `<option>${x}</option>`).join('');
