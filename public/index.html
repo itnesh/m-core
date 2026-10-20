@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>M-CORE</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23FF6600'/%3E%3Ctext x='32' y='45' font-family='Arial' font-weight='900' font-size='38' text-anchor='middle' fill='white'%3EM%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Login -->
+<section id="login" class="login hidden">
+  <div class="login-card">
+    <div class="logo big"><span class="m">M</span><span class="dot">·</span><span>CORE</span></div>
+    <p class="muted">Persönliches Task-, Link- und Chat-Cockpit</p>
+    <button id="btnLogin" class="btn primary wide">Mit Google anmelden</button>
+    <p id="loginErr" class="err"></p>
+  </div>
+</section>
+
+<!-- App -->
+<div id="app" class="app hidden">
+  <header class="topbar">
+    <div class="logo"><span class="m">M</span><span class="dot">·</span><span>CORE</span></div>
+    <div class="search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="search" type="search" placeholder="Suchen in Titel, Beschreibung, Links, Chats …  ( / )" autocomplete="off">
+    </div>
+    <button id="btnNew" class="btn primary"><span class="plus">+</span> Neu <kbd>N</kbd></button>
+    <div class="user">
+      <button id="btnUser" class="avatar" title="Menü"></button>
+      <div id="userMenu" class="menu hidden">
+        <div class="menu-head" id="userInfo"></div>
+        <button data-act="export">Backup exportieren (JSON)</button>
+        <label class="menu-btn">Backup importieren (JSON)<input id="importFile" type="file" accept="application/json" hidden></label>
+        <button data-act="logout" id="btnLogout">Abmelden</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="side-title">Status</div>
+      <nav id="statusNav" class="status-nav"></nav>
+      <div class="side-foot">
+        <button id="btnAll" class="link-btn">Alle</button> ·
+        <button id="btnActive" class="link-btn">Aktiv</button>
+      </div>
+      <div class="mode-badge" id="modeBadge"></div>
+    </aside>
+
+    <main class="board">
+      <div class="board-head">
+        <h2 id="listTitle">Tasks</h2>
+        <span id="listCount" class="muted"></span>
+      </div>
+      <div id="taskList" class="task-list"></div>
+    </main>
+
+    <aside class="todo-panel">
+      <div class="panel-head">
+        <h2>2do</h2>
+        <span id="todoCount" class="pill soft"></span>
+      </div>
+      <form id="todoForm" class="todo-form">
+        <input id="todoInput" placeholder="Neues 2do … Enter" autocomplete="off">
+      </form>
+      <ul id="todoList" class="todo-list"></ul>
+      <details id="todoDoneWrap" class="todo-done">
+        <summary>Erledigt <span id="todoDoneCount"></span></summary>
+        <ul id="todoDoneList" class="todo-list done"></ul>
+      </details>
+    </aside>
+  </div>
+</div>
+
+<!-- Task Drawer -->
+<div id="drawerBg" class="drawer-bg hidden"></div>
+<section id="drawer" class="drawer hidden" aria-hidden="true">
+  <header class="drawer-head">
+    <input id="fTitle" class="title-input" placeholder="Titel">
+    <div class="drawer-actions">
+      <button id="btnDelete" class="icon-btn danger" title="Task löschen">
+        <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>
+      </button>
+      <button id="btnClose" class="icon-btn" title="Schliessen (Esc)">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+  </header>
+  <div class="drawer-body">
+    <!-- Details -->
+    <div class="col col-details">
+      <label class="lbl">Description</label>
+      <textarea id="fDesc" rows="3" placeholder="Kurzbeschrieb"></textarea>
+
+      <div class="grid2">
+        <div><label class="lbl">Status</label><select id="fStatus"></select></div>
+        <div><label class="lbl">Type</label>
+          <select id="fType"><option value="T">Task</option><option value="P">Project</option></select>
+        </div>
+      </div>
+
+      <label class="lbl">Prio</label>
+      <div id="fPrio" class="seg">
+        <button data-v="1" class="p1">High</button>
+        <button data-v="2" class="p2">Medium</button>
+        <button data-v="3" class="p3">Low</button>
+      </div>
+
+      <label class="lbl">Progress <span id="fProgVal" class="muted"></span></label>
+      <div id="fProg" class="prog-steps"></div>
+
+      <label class="lbl">Deadline</label>
+      <div class="row-gap">
+        <input id="fDeadline" type="date">
+        <button id="btnClearDeadline" class="link-btn">entfernen</button>
+      </div>
+
+      <label class="lbl">Involved</label>
+      <div id="persons" class="persons"></div>
+      <form id="personForm" class="inline-form">
+        <input id="pName" placeholder="Name">
+        <input id="pRole" placeholder="Rolle">
+        <button class="btn small">+</button>
+      </form>
+    </div>
+
+    <!-- Links -->
+    <div class="col col-links">
+      <div class="col-head"><h3>URLs</h3></div>
+      <form id="linkForm" class="link-form">
+        <input id="lUrl" placeholder="URL einfügen + Enter" autocomplete="off">
+        <input id="lTitle" placeholder="Titel (optional)" autocomplete="off">
+      </form>
+      <div id="links" class="links"></div>
+    </div>
+
+    <!-- Chat -->
+    <div class="col col-chat">
+      <div class="col-head"><h3>Chat</h3><span class="muted small">Ctrl+Enter senden</span></div>
+      <div class="editor">
+        <div class="toolbar">
+          <button data-cmd="bold" title="Bold"><b>B</b></button>
+          <button data-cmd="italic" title="Italic"><i>I</i></button>
+          <button data-cmd="underline" title="Underline"><u>U</u></button>
+          <button data-cmd="insertUnorderedList" title="Liste">•</button>
+          <button data-cmd="createLink" title="Link">🔗</button>
+          <span class="grow"></span>
+          <button id="btnCancelEdit" class="link-btn hidden">Abbrechen</button>
+          <button id="btnSend" class="btn small primary">Senden</button>
+        </div>
+        <div id="chatInput" class="rte" contenteditable="true" data-ph="Notiz / Update schreiben …"></div>
+      </div>
+      <div id="chat" class="chat"></div>
+    </div>
+  </div>
+</section>
+
+<div id="pop" class="pop hidden"></div>
+<div id="toast" class="toast hidden"></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
