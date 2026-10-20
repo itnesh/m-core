@@ -349,3 +349,8 @@ h3{font-size:14px;margin:0;font-weight:700}
 .st-btn.on .sic,.status-pill .sic,.pop .sic{color:var(--c)}
 .st-btn.on .sic{background:color-mix(in srgb,var(--c) 14%,transparent)}
 .status-pill .sic{width:16px;height:16px}.status-pill .sico{width:13px;height:13px}
+
+/* v6 Status-Tönung */
+.task{background:color-mix(in srgb,var(--tc,#fff) var(--tp,0%),#fff);border-color:color-mix(in srgb,var(--tc,#e6e8ec) calc(var(--tp,0%) * 2.5),var(--line))}
+.st-btn .sic{color:var(--c);opacity:.55}
+.st-btn.on .sic{opacity:1}

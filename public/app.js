@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=5';
+import { CONFIG } from './config.js?v=6';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -11,7 +11,8 @@ const ST_ICON = {
   'Delivered': SI('<path d="M4 12l5 5L20 6"/>'),
   'Dropped': SI('<path d="M6 6l12 12M18 6 6 18"/>'),
 };
-const STATUS_COLOR = { 'Ideas': '#b39ddb', 'Queued': '#769cc1', 'In Motion': '#FF6600', 'Delivered': '#7cb342', 'Frozen': '#90a4ae', 'Dropped': '#bdbdbd' };
+const STATUS_COLOR = { 'Ideas': '#9c7fd6', 'Queued': '#7b52c9', 'In Motion': '#FF6600', 'Delivered': '#5fa832', 'Frozen': '#e0605a', 'Dropped': '#c0392b' };
+const STATUS_TINT = { 'Ideas': 7, 'Queued': 7, 'In Motion': 0, 'Delivered': 8, 'Frozen': 7, 'Dropped': 8 };
 const STATUS_ORDER = { 'In Motion': 1, 'Queued': 2, 'Frozen': 3, 'Ideas': 4, 'Delivered': 5, 'Dropped': 6 };
 const DEFAULT_FILTER = ['Queued', 'In Motion', 'Frozen'];
 const PRIO = { 1: { n: 'High', c: '#B76E79' }, 2: { n: 'Medium', c: '#C7A76C' }, 3: { n: 'Low', c: '#7E9CB2' } };
@@ -227,7 +228,7 @@ function renderList() {
     const nChat = (t.chats || []).length;
     const urls = t.urls || [];
     return `
-    <article class="task" data-id="${t.id}">
+    <article class="task" data-id="${t.id}" style="--tc:${STATUS_COLOR[t.status] || '#fff'};--tp:${STATUS_TINT[t.status] ?? 0}%">
       <div class="bar" style="--pc:${p.c}" data-act="prio" title="Prio: ${p.n}"></div>
       <div class="main">
         <div class="ttl ${t.title ? '' : 'empty-ttl'}">${t.recurNew ? '<span class="recnew" title="Neu aus Recurring">!</span>' : ''}${t.recId ? '<span class="recicon" title="Recurring">↻</span>' : ''}${esc(t.title || 'Ohne Titel')}</div>
