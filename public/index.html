@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 
@@ -50,6 +50,7 @@
         <button id="btnAll" class="link-btn">Alle</button> ·
         <button id="btnActive" class="link-btn">Aktiv</button>
       </div>
+      <button id="btnRec" class="st-btn rec-btn" style="--c:#FF6600"><span class="recicon">↻</span>Recurring<span class="cnt" id="recCount"></span></button>
       <div class="mode-badge" id="modeBadge"></div>
     </aside>
 
@@ -108,12 +109,7 @@
       <label class="lbl">Description</label>
       <textarea id="fDesc" rows="9" placeholder="Beschreibung"></textarea>
 
-      <div class="grid2">
-        <div><label class="lbl">Status</label><select id="fStatus"></select></div>
-        <div><label class="lbl">Type</label>
-          <select id="fType"><option value="T">Task</option><option value="P">Project</option></select>
-        </div>
-      </div>
+      <label class="lbl">Status</label><select id="fStatus"></select>
 
       <label class="lbl">Prio</label>
       <div id="fPrio" class="seg">
@@ -180,9 +176,18 @@
   </div>
 </section>
 
+<section id="recModal" class="modal hidden">
+  <header class="drawer-head"><h2 style="flex:1">↻ Recurring</h2>
+    <button id="btnRecAdd" class="btn small primary">+ Neu</button>
+    <button id="btnRecClose" class="icon-btn" title="Schliessen (Esc)"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </header>
+  <p class="muted small" style="margin:10px 20px 0">Fällige Aufgaben landen automatisch im <b>Queued</b> (mit <span class="recnew">!</span>, bis du sie öffnest). Deadline = Termin.</p>
+  <div id="recList" class="rec-list"></div>
+</section>
+
 <div id="pop" class="pop hidden"></div>
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="app.js?v=4"></script>
+<script type="module" src="app.js?v=5"></script>
 </body>
 </html>
