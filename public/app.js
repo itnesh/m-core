@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js';
+import { CONFIG } from './config.js?v=4';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Delivered', 'Frozen', 'Dropped'];
