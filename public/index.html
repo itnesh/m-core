@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 
@@ -63,9 +63,12 @@
     </main>
 
     <aside class="todo-panel">
+      <button id="todoTab" class="todo-tab" title="2do einblenden"><span class="arr">‹</span><span class="vt">2do</span><span id="todoTabCount" class="pill soft"></span></button>
       <div class="panel-head">
         <h2>2do</h2>
         <span id="todoCount" class="pill soft"></span>
+        <span class="grow"></span>
+        <button id="btnTodoHide" class="icon-btn" title="2do ausblenden"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
       </div>
       <div class="editor todo-editor">
         <div class="toolbar" data-target="todoInput">
@@ -188,6 +191,6 @@
 <div id="pop" class="pop hidden"></div>
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="app.js?v=6"></script>
+<script type="module" src="app.js?v=7"></script>
 </body>
 </html>

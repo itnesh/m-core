@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=6';
+import { CONFIG } from './config.js?v=7';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -534,6 +534,7 @@ function renderTodos() {
   $('#todoList').innerHTML = open.map(row).join('') || '<li class="muted small" style="padding:10px 4px">Alles erledigt.</li>';
   $('#todoDoneList').innerHTML = done.map(row).join('');
   $('#todoCount').textContent = open.length;
+  $('#todoTabCount').textContent = open.length;
   $('#todoDoneCount').textContent = `(${done.length})`;
   $('#todoDoneWrap').classList.toggle('hidden', !done.length);
 }
@@ -544,6 +545,10 @@ function addTodo() {
   store.add('todos', { html, text, done: false }); $('#todoInput').innerHTML = '';
 }
 $('#btnTodoAdd').onclick = addTodo;
+function setTodoCollapsed(v) { document.body.classList.toggle('todo-collapsed', v); savePref('todoCollapsed', v); }
+setTodoCollapsed(!!loadPref('todoCollapsed', false));
+$('#btnTodoHide').onclick = () => setTodoCollapsed(true);
+$('#todoTab').onclick = () => setTodoCollapsed(false);
 $('#todoInput').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); addTodo(); } });
 function todoClick(e) {
   const el = e.target.closest('[data-ta]'); if (!el) return;
@@ -690,7 +695,7 @@ document.addEventListener('keydown', e => {
   if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === '/') { e.preventDefault(); $('#search').focus(); }
   else if (e.key.toLowerCase() === 'n' && !S.openId) { e.preventDefault(); newTask(); }
-  else if (e.key.toLowerCase() === 't' && !S.openId) { e.preventDefault(); $('#todoInput').focus(); }
+  else if (e.key.toLowerCase() === 't' && !S.openId) { e.preventDefault(); setTodoCollapsed(false); $('#todoInput').focus(); }
 });
 
 /* ================= User-Menü / Backup ================= */
