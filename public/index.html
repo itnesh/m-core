@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 
@@ -68,7 +68,7 @@
         <h2>2do</h2>
         <span id="todoCount" class="pill soft"></span>
         <span class="grow"></span>
-        <button id="btnTodoNew" class="btn small primary" title="Neues 2do (T)">+ Neu</button>
+        <button id="btnTodoNew" class="btn small add" title="Neues 2do (T)">+ Neu</button>
         <button id="btnTodoHide" class="icon-btn" title="2do ausblenden"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
       </div>
       <div id="todoEditor" class="editor todo-editor hidden">
@@ -147,7 +147,7 @@
 
     <!-- Links -->
     <div class="col col-links">
-      <div class="col-head"><h3>URLs</h3><button id="btnLinkNew" class="btn small">+ Link</button></div>
+      <div class="col-head"><h3>URLs</h3><button id="btnLinkNew" class="btn small add">+ Link</button></div>
       <form id="linkForm" class="link-form hidden">
         <input id="lUrl" placeholder="URL einfügen + Enter" autocomplete="off">
         <div class="row2">
@@ -161,7 +161,7 @@
 
     <!-- Chat -->
     <div class="col col-chat">
-      <div class="col-head"><h3>Chat</h3><button id="btnChatNew" class="btn small">+ Eintrag</button></div>
+      <div class="col-head"><h3>Chat</h3><button id="btnChatNew" class="btn small add">+ Eintrag</button></div>
       <div id="chatEditor" class="editor hidden">
         <div class="toolbar" data-target="chatInput">
           <button data-cmd="bold" title="Bold"><b>B</b></button>
@@ -182,7 +182,7 @@
 
 <section id="recModal" class="modal hidden">
   <header class="drawer-head"><h2 style="flex:1">↻ Recurring</h2>
-    <button id="btnRecAdd" class="btn small primary">+ Neu</button>
+    <button id="btnRecAdd" class="btn small add">+ Neu</button>
     <button id="btnRecClose" class="icon-btn" title="Schliessen (Esc)"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   </header>
   <p class="muted small" style="margin:10px 20px 0">Fällige Aufgaben landen automatisch im <b>Queued</b> (mit <span class="recnew">!</span>, bis du sie öffnest). Deadline = Termin.</p>
@@ -192,6 +192,6 @@
 <div id="pop" class="pop hidden"></div>
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="app.js?v=8"></script>
+<script type="module" src="app.js?v=9"></script>
 </body>
 </html>
