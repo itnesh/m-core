@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=7';
+import { CONFIG } from './config.js?v=8';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -310,9 +310,10 @@ function openTask(id, focusTitle = false) {
   if (task(id)?.recurNew) upd(id, { recurNew: false });
   S.openId = id; S.editMsgId = null; S.editLinkId = null; S.linkFilter = null;
   $('#chatInput').innerHTML = '';
+  $('#chatEditor').classList.add('hidden'); hideLinkForm();
   $('#drawer').classList.remove('hidden'); $('#drawerBg').classList.remove('hidden');
   renderDrawer(true);
-  setTimeout(() => (focusTitle ? $('#fTitle') : $('#lUrl')).focus(), 30);
+  if (focusTitle) setTimeout(() => $('#fTitle').focus(), 30);
 }
 function closeTask() {
   const t = task(S.openId);
@@ -486,20 +487,25 @@ function renderChat(t) {
     </div>`).join('') : '<div class="muted small">Noch keine Einträge.</div>';
   $$('#chat .mb a').forEach(a => { if (isTeams(a.href)) { a.href = linkHref(a.href); a.removeAttribute('target'); } else { a.target = '_blank'; a.rel = 'noopener'; } });
 }
+function showChatEditor() { $('#chatEditor').classList.remove('hidden'); $('#chatInput').focus(); }
+function hideChatEditor() { S.editMsgId = null; $('#chatInput').innerHTML = ''; $('#chatEditor').classList.add('hidden'); }
+$('#btnChatNew').onclick = () => { S.editMsgId = null; $('#chatInput').innerHTML = ''; showChatEditor(); renderChat(task(S.openId)); };
+function hideLinkForm() { $('#linkForm').classList.add('hidden'); $('#lUrl').value = ''; $('#lTitle').value = ''; }
+$('#btnLinkNew').onclick = () => { const f = $('#linkForm'); if (f.classList.contains('hidden')) { f.classList.remove('hidden'); $('#lUrl').focus(); } else hideLinkForm(); };
 function sendChat() {
   const html = clean($('#chatInput').innerHTML.trim());
   if (!stripHtml(html).trim() && !/<img/i.test(html)) return;
   const t = task(S.openId);
   if (S.editMsgId) {
     upd(t.id, { chats: t.chats.map(c => c.id === S.editMsgId ? { ...c, html, edited: Date.now() } : c) });
-    S.editMsgId = null; $('#btnCancelEdit').classList.add('hidden');
+    S.editMsgId = null;
   } else {
     upd(t.id, { chats: [...(t.chats || []), { id: uid(), ts: Date.now(), html }] });
   }
-  $('#chatInput').innerHTML = '';
+  hideChatEditor(); //$('#chatInput').innerHTML = '';
 }
 $('#btnSend').onclick = sendChat;
-$('#btnCancelEdit').onclick = () => { S.editMsgId = null; $('#chatInput').innerHTML = ''; $('#btnCancelEdit').classList.add('hidden'); renderChat(task(S.openId)); };
+$('#btnCancelEdit').onclick = () => { hideChatEditor(); renderChat(task(S.openId)); };
 $('#chatInput').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendChat(); } });
 document.addEventListener('mousedown', e => {
   const b = e.target.closest('.toolbar [data-cmd]'); if (!b) return; e.preventDefault();
@@ -512,7 +518,7 @@ $('#chat').addEventListener('click', e => {
   const mid = b.closest('.msg').dataset.id; const t = task(S.openId);
   if (b.dataset.ca === 'del') { if (confirm('Eintrag löschen?')) upd(t.id, { chats: t.chats.filter(c => c.id !== mid) }); return; }
   S.editMsgId = mid; $('#chatInput').innerHTML = clean(t.chats.find(c => c.id === mid).html);
-  $('#btnCancelEdit').classList.remove('hidden'); renderChat(t); $('#chatInput').focus();
+  renderChat(t); showChatEditor();
 });
 
 /* ================= 2do ================= */
@@ -542,9 +548,20 @@ const todoHtml = t => t.html ? clean(t.html) : linkify(t.text);
 function addTodo() {
   const html = clean($('#todoInput').innerHTML.trim()); const text = stripHtml(html).trim();
   if (!text) return;
-  store.add('todos', { html, text, done: false }); $('#todoInput').innerHTML = '';
+  store.add('todos', { html, text, done: false }); hideTodoEditor();
 }
 $('#btnTodoAdd').onclick = addTodo;
+function showTodoEditor() { setTodoCollapsed(false); $('#todoEditor').classList.remove('hidden'); $('#todoInput').focus(); }
+function hideTodoEditor() { $('#todoInput').innerHTML = ''; $('#todoEditor').classList.add('hidden'); }
+$('#btnTodoNew').onclick = () => $('#todoEditor').classList.contains('hidden') ? showTodoEditor() : hideTodoEditor();
+$('#btnTodoCancel').onclick = hideTodoEditor;
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const a = document.activeElement;
+  if (a === $('#todoInput')) { e.stopPropagation(); e.preventDefault(); hideTodoEditor(); }
+  else if (a === $('#chatInput')) { e.stopPropagation(); e.preventDefault(); hideChatEditor(); renderChat(task(S.openId)); }
+  else if (a === $('#lUrl') || a === $('#lTitle') || a === $('#lType')) { e.stopPropagation(); e.preventDefault(); hideLinkForm(); }
+}, true);
 function setTodoCollapsed(v) { document.body.classList.toggle('todo-collapsed', v); savePref('todoCollapsed', v); }
 setTodoCollapsed(!!loadPref('todoCollapsed', false));
 $('#btnTodoHide').onclick = () => setTodoCollapsed(true);
@@ -695,7 +712,7 @@ document.addEventListener('keydown', e => {
   if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === '/') { e.preventDefault(); $('#search').focus(); }
   else if (e.key.toLowerCase() === 'n' && !S.openId) { e.preventDefault(); newTask(); }
-  else if (e.key.toLowerCase() === 't' && !S.openId) { e.preventDefault(); setTodoCollapsed(false); $('#todoInput').focus(); }
+  else if (e.key.toLowerCase() === 't' && !S.openId) { e.preventDefault(); showTodoEditor(); }
 });
 
 /* ================= User-Menü / Backup ================= */
