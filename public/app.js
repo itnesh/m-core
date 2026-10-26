@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=11';
+import { CONFIG } from './config.js?v=12';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -484,35 +484,56 @@ $('#links').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target
 
 /* Chat */
 function renderChat(t) {
+  if (S.editMsgId && document.querySelector('.msg-edit')?.contains(document.activeElement)) return;
   const chats = [...(t.chats || [])].sort((a, b) => b.ts - a.ts);
   $('#chat').innerHTML = chats.length ? chats.map(c => `
     <div class="msg ${c.id === S.editMsgId ? 'editing' : ''}" data-id="${c.id}">
       <div class="mh">${fmtTs(c.ts)}${c.edited ? ' · bearbeitet' : ''}
         <span class="acts"><button data-ca="edit" title="Bearbeiten">${svg.edit}</button><button data-ca="del" title="Löschen">${svg.del}</button></span></div>
-      <div class="mb">${clean(c.html)}</div>
+      ${c.id === S.editMsgId
+        ? `<div class="editor msg-edit">${TB}<span class="grow"></span><button class="link-btn" data-ca="cancel">Abbrechen</button><button class="btn small primary" data-ca="save">Speichern</button></div><div class="rte" contenteditable="true">${clean(c.html)}</div></div>`
+        : `<div class="mb" title="Doppelklick zum Bearbeiten">${clean(c.html)}</div>`}
     </div>`).join('') : '<div class="muted small">Noch keine Einträge.</div>';
   hydrate($('#chat'));
   $$('#chat .mb a').forEach(a => { if (isTeams(a.href)) { a.href = linkHref(a.href); a.removeAttribute('target'); } else { a.target = '_blank'; a.rel = 'noopener'; } });
 }
 function showChatEditor() { $('#chatEditor').classList.remove('hidden'); $('#chatInput').focus(); }
 function hideChatEditor() { S.editMsgId = null; $('#chatInput').innerHTML = ''; $('#chatEditor').classList.add('hidden'); }
-$('#btnChatNew').onclick = () => { S.editMsgId = null; $('#chatInput').innerHTML = ''; showChatEditor(); renderChat(task(S.openId)); };
+$('#btnChatNew').onclick = () => { if (S.editMsgId) finishMsgEdit(false); $('#chatInput').innerHTML = ''; showChatEditor(); };
 function hideLinkForm() { $('#linkForm').classList.add('hidden'); $('#lUrl').value = ''; $('#lTitle').value = ''; }
 $('#btnLinkNew').onclick = () => { const f = $('#linkForm'); if (f.classList.contains('hidden')) { f.classList.remove('hidden'); $('#lUrl').focus(); } else hideLinkForm(); };
 function sendChat() {
   const html = clean($('#chatInput').innerHTML.trim());
   if (!stripHtml(html).trim() && !/<img/i.test(html)) return;
   const t = task(S.openId);
-  if (S.editMsgId) {
-    upd(t.id, { chats: t.chats.map(c => c.id === S.editMsgId ? { ...c, html, edited: Date.now() } : c) });
-    S.editMsgId = null;
-  } else {
-    upd(t.id, { chats: [...(t.chats || []), { id: uid(), ts: Date.now(), html }] });
-  }
-  hideChatEditor(); //$('#chatInput').innerHTML = '';
+  upd(t.id, { chats: [...(t.chats || []), { id: uid(), ts: Date.now(), html }] });
+  $('#chatInput').innerHTML = ''; $('#chatEditor').classList.add('hidden');
 }
+function startMsgEdit(mid) {
+  $('#chatInput').innerHTML = ''; $('#chatEditor').classList.add('hidden');
+  S.editMsgId = mid; renderChat(task(S.openId));
+  const ed = document.querySelector('.msg-edit .rte'); if (!ed) return;
+  hydrate(ed); ed.focus(); document.getSelection().selectAllChildren(ed); document.getSelection().collapseToEnd();
+}
+function finishMsgEdit(save) {
+  const mid = S.editMsgId; const ed = document.querySelector('.msg-edit .rte'); S.editMsgId = null;
+  const t = task(S.openId);
+  if (save && ed && t) {
+    const html = clean(ed.innerHTML.trim()); const old = t.chats.find(c => c.id === mid);
+    if ((stripHtml(html).trim() || /<img/i.test(html)) && old && html !== old.html) {
+      attIds(old.html).filter(x => !attIds(html).includes(x)).forEach(x => removeAtts(`data-att="${x}"`));
+      upd(t.id, { chats: t.chats.map(c => c.id === mid ? { ...c, html, edited: Date.now() } : c) }); return;
+    }
+  }
+  if (t) renderChat(t);
+}
+document.addEventListener('keydown', e => {
+  if (!e.target.closest?.('.msg-edit')) return;
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); finishMsgEdit(true); }
+  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finishMsgEdit(false); }
+}, true);
 $('#btnSend').onclick = sendChat;
-$('#btnCancelEdit').onclick = () => { hideChatEditor(); renderChat(task(S.openId)); };
+$('#btnCancelEdit').onclick = () => { $('#chatInput').innerHTML = ''; $('#chatEditor').classList.add('hidden'); };
 $('#chatInput').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendChat(); } });
 document.addEventListener('mousedown', e => {
   const b = e.target.closest('.toolbar [data-cmd]'); if (!b) return; e.preventDefault();
@@ -545,9 +566,11 @@ $('#chat').addEventListener('click', e => {
   const b = e.target.closest('[data-ca]'); if (!b) return;
   const mid = b.closest('.msg').dataset.id; const t = task(S.openId);
   if (b.dataset.ca === 'del') { if (confirm('Eintrag löschen?')) { removeAtts(t.chats.find(c => c.id === mid)?.html); upd(t.id, { chats: t.chats.filter(c => c.id !== mid) }); } return; }
-  S.editMsgId = mid; $('#chatInput').innerHTML = clean(t.chats.find(c => c.id === mid).html); hydrate($('#chatInput'));
-  renderChat(t); showChatEditor();
+  if (b.dataset.ca === 'save') return finishMsgEdit(true);
+  if (b.dataset.ca === 'cancel') return finishMsgEdit(false);
+  startMsgEdit(mid);
 });
+$('#chat').addEventListener('dblclick', e => { const mb = e.target.closest('.msg .mb'); if (mb && !e.target.closest('a,img')) startMsgEdit(mb.closest('.msg').dataset.id); });
 
 /* ================= 2do ================= */
 const TB = `<div class="toolbar"><button data-cmd="bold" title="Bold"><b>B</b></button><button data-cmd="italic" title="Italic"><i>I</i></button><button data-cmd="underline" title="Underline"><u>U</u></button><button data-cmd="insertUnorderedList" title="Liste">•</button><button data-cmd="createLink" title="Link">🔗</button><button data-color="fore" title="Schriftfarbe" class="cbtn"><span class="ca">A</span></button><button data-color="back" title="Hintergrundfarbe" class="cbtn"><span class="cm">▌</span></button>`;
@@ -563,7 +586,7 @@ function renderTodos() {
           : `<div class="txt" data-ta="txt" title="Doppelklick zum Bearbeiten">${todoHtml(t)}</div>`}
         <div class="meta">${t.done ? 'erledigt ' + fmtTs(t.doneAt) : fmtTs(t.createdAt)}</div>
       </div>
-      <button class="del" data-ta="del" title="Löschen">${svg.x}</button>
+      ${S.editTodoId === t.id ? '' : `<button class="del" data-ta="edit" title="Bearbeiten">${svg.edit}</button><button class="del" data-ta="del" title="Löschen">${svg.x}</button>`}
     </li>`;
   $('#todoList').innerHTML = open.map(row).join('') || '<li class="muted small" style="padding:10px 4px">Alles erledigt.</li>';
   $('#todoDoneList').innerHTML = done.map(row).join('');
@@ -601,6 +624,7 @@ function todoClick(e) {
   const id = el.closest('.todo').dataset.id; const t = S.todos.find(x => x.id === id);
   if (el.dataset.ta === 'chk') store.update('todos', id, { done: !t.done, doneAt: t.done ? null : Date.now() });
   if (el.dataset.ta === 'del') { removeAtts(t.html); store.remove('todos', id); }
+  if (el.dataset.ta === 'edit') todoEdit({ target: el.closest('.todo').querySelector('[data-ta=txt]') });
 }
 function todoEdit(e) {
   const el = e.target.closest('[data-ta=txt]'); if (!el || e.target.closest('a')) return;
