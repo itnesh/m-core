@@ -376,3 +376,12 @@ body.todo-collapsed .todo-tab{display:flex;flex-direction:column;align-items:cen
 /* v9 einheitliche + Buttons */
 .btn.add{background:var(--orange-soft);border-color:#fbd3b8;color:var(--orange);font-weight:700}
 .btn.add:hover{background:var(--orange);border-color:var(--orange);color:#fff}
+
+/* v10 Screenshots */
+img.att{display:block;max-width:100%;max-height:220px;width:auto;margin:6px 0;border:1px solid var(--line);border-radius:8px;cursor:zoom-in;background:#f4f5f7;min-width:60px;min-height:40px;object-fit:contain}
+.rte img.att{cursor:default;max-height:160px}
+img.att.missing{min-height:30px;opacity:.5}
+.todo .txt img.att{max-height:140px}
+.lightbox{position:fixed;inset:0;z-index:90;background:rgba(17,24,39,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:30px;cursor:zoom-out;animation:fade .12s}
+.lightbox img{max-width:96vw;max-height:86vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.4);background:#fff}
+.lightbox .btn{cursor:pointer}

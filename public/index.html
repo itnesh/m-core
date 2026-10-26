@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
 
@@ -82,7 +82,7 @@
           <button id="btnTodoCancel" class="link-btn">Abbrechen</button>
           <button id="btnTodoAdd" class="btn small primary">Hinzufügen</button>
         </div>
-        <div id="todoInput" class="rte" contenteditable="true" data-ph="Neues 2do / Notiz … (T)"></div>
+        <div id="todoInput" class="rte" contenteditable="true" data-ph="Neues 2do / Notiz … Screenshot mit Ctrl+V einfügen"></div>
       </div>
       <ul id="todoList" class="todo-list"></ul>
       <details id="todoDoneWrap" class="todo-done">
@@ -173,7 +173,7 @@
           <button id="btnCancelEdit" class="link-btn">Abbrechen</button>
           <button id="btnSend" class="btn small primary">Senden</button>
         </div>
-        <div id="chatInput" class="rte" contenteditable="true" data-ph="Notiz / Update schreiben …"></div>
+        <div id="chatInput" class="rte" contenteditable="true" data-ph="Notiz / Update schreiben … Screenshot mit Ctrl+V einfügen"></div>
       </div>
       <div id="chat" class="chat"></div>
     </div>
@@ -189,9 +189,13 @@
   <div id="recList" class="rec-list"></div>
 </section>
 
+<div id="lightbox" class="lightbox hidden">
+  <img id="lbImg" alt="Screenshot">
+  <button id="lbOpen" class="btn small">In neuem Tab öffnen</button>
+</div>
 <div id="pop" class="pop hidden"></div>
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="app.js?v=9"></script>
+<script type="module" src="app.js?v=10"></script>
 </body>
 </html>

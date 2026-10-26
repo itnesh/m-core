@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=9';
+import { CONFIG } from './config.js?v=10';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -27,13 +27,14 @@ const ICON = t => `img/${(t || 'others').toLowerCase()}.png`;
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const ALLOWED = new Set(['B','STRONG','I','EM','U','S','P','BR','DIV','SPAN','UL','OL','LI','A','CODE','PRE','BLOCKQUOTE','H1','H2','H3','H4','FONT']);
+const ALLOWED = new Set(['IMG','B','STRONG','I','EM','U','S','P','BR','DIV','SPAN','UL','OL','LI','A','CODE','PRE','BLOCKQUOTE','H1','H2','H3','H4','FONT']);
 function clean(html) {
   const tpl = document.createElement('template'); tpl.innerHTML = html || '';
   const walk = node => [...node.childNodes].forEach(n => {
     if (n.nodeType === 8) return n.remove();
     if (n.nodeType !== 1) return;
     if (!ALLOWED.has(n.tagName)) { if (/^(SCRIPT|STYLE|IFRAME|OBJECT|EMBED)$/.test(n.tagName)) return n.remove(); walk(n); n.replaceWith(...n.childNodes); return; }
+    if (n.tagName === 'IMG') { const id = n.getAttribute('data-att'); if (!id || !/^[\w-]+$/.test(id)) return n.remove(); [...n.attributes].forEach(a => n.removeAttribute(a.name)); n.setAttribute('data-att', id); n.className = 'att'; n.alt = 'Screenshot'; return; }
     [...n.attributes].forEach(a => { if (!(n.tagName === 'A' && a.name === 'href') && a.name !== 'color') n.removeAttribute(a.name); });
     if (n.tagName === 'A') { if (!/^(https?:|mailto:|onenote:)/i.test(n.getAttribute('href') || '')) n.removeAttribute('href'); n.target = '_blank'; n.rel = 'noopener'; }
     walk(n);
@@ -90,6 +91,7 @@ async function firebaseStore() {
     update: (n, id, p) => F.updateDoc(F.doc(col(n), id), { ...p, updatedAt: Date.now() }).catch(fail),
     remove: (n, id) => F.deleteDoc(F.doc(col(n), id)).catch(fail),
     put: (n, id, data) => F.setDoc(F.doc(col(n), id), data).catch(fail),
+    get: (n, id) => F.getDoc(F.doc(col(n), id)).then(s => s.exists() ? { id: s.id, ...s.data() } : null),
   };
 }
 
@@ -106,6 +108,7 @@ function localStore() {
     update(n, id, p) { write(n, read(n).map(x => x.id === id ? { ...x, ...p, updatedAt: Date.now() } : x)); },
     remove(n, id) { write(n, read(n).filter(x => x.id !== id)); },
     put(n, id, data) { write(n, [...read(n).filter(x => x.id !== id), { id, ...data }]); },
+    get: async (n, id) => read(n).find(x => x.id === id) || null,
   };
 }
 
@@ -449,7 +452,7 @@ function renderLinks(t) {
       <img src="${ICON(u.type)}" alt="">
       <div class="lt"><b>${esc(u.title || hostOf(u.url))}</b><span>${esc(u.url)}</span></div>
       <button class="ed" data-la="edit" title="Bearbeiten">${svg.edit}</button>
-    </a>`).join('') : '<div class="muted small">Noch keine Links. URL oben einfügen.</div>';
+    </a>`).join('') : '<div class="muted small">Noch keine Links.</div>';
 }
 $('#linkForm').addEventListener('keydown', e => {
   if (e.key !== 'Enter') return; e.preventDefault();
@@ -485,6 +488,7 @@ function renderChat(t) {
         <span class="acts"><button data-ca="edit" title="Bearbeiten">${svg.edit}</button><button data-ca="del" title="Löschen">${svg.del}</button></span></div>
       <div class="mb">${clean(c.html)}</div>
     </div>`).join('') : '<div class="muted small">Noch keine Einträge.</div>';
+  hydrate($('#chat'));
   $$('#chat .mb a').forEach(a => { if (isTeams(a.href)) { a.href = linkHref(a.href); a.removeAttribute('target'); } else { a.target = '_blank'; a.rel = 'noopener'; } });
 }
 function showChatEditor() { $('#chatEditor').classList.remove('hidden'); $('#chatInput').focus(); }
@@ -516,8 +520,8 @@ document.addEventListener('mousedown', e => {
 $('#chat').addEventListener('click', e => {
   const b = e.target.closest('[data-ca]'); if (!b) return;
   const mid = b.closest('.msg').dataset.id; const t = task(S.openId);
-  if (b.dataset.ca === 'del') { if (confirm('Eintrag löschen?')) upd(t.id, { chats: t.chats.filter(c => c.id !== mid) }); return; }
-  S.editMsgId = mid; $('#chatInput').innerHTML = clean(t.chats.find(c => c.id === mid).html);
+  if (b.dataset.ca === 'del') { if (confirm('Eintrag löschen?')) { removeAtts(t.chats.find(c => c.id === mid)?.html); upd(t.id, { chats: t.chats.filter(c => c.id !== mid) }); } return; }
+  S.editMsgId = mid; $('#chatInput').innerHTML = clean(t.chats.find(c => c.id === mid).html); hydrate($('#chatInput'));
   renderChat(t); showChatEditor();
 });
 
@@ -539,6 +543,7 @@ function renderTodos() {
     </li>`;
   $('#todoList').innerHTML = open.map(row).join('') || '<li class="muted small" style="padding:10px 4px">Alles erledigt.</li>';
   $('#todoDoneList').innerHTML = done.map(row).join('');
+  hydrate($('#todoList')); hydrate($('#todoDoneList'));
   $('#todoCount').textContent = open.length;
   $('#todoTabCount').textContent = open.length;
   $('#todoDoneCount').textContent = `(${done.length})`;
@@ -547,7 +552,7 @@ function renderTodos() {
 const todoHtml = t => t.html ? clean(t.html) : linkify(t.text);
 function addTodo() {
   const html = clean($('#todoInput').innerHTML.trim()); const text = stripHtml(html).trim();
-  if (!text) return;
+  if (!text && !/<img/i.test(html)) return;
   store.add('todos', { html, text, done: false }); hideTodoEditor();
 }
 $('#btnTodoAdd').onclick = addTodo;
@@ -571,17 +576,17 @@ function todoClick(e) {
   const el = e.target.closest('[data-ta]'); if (!el) return;
   const id = el.closest('.todo').dataset.id; const t = S.todos.find(x => x.id === id);
   if (el.dataset.ta === 'chk') store.update('todos', id, { done: !t.done, doneAt: t.done ? null : Date.now() });
-  if (el.dataset.ta === 'del') store.remove('todos', id);
+  if (el.dataset.ta === 'del') { removeAtts(t.html); store.remove('todos', id); }
 }
 function todoEdit(e) {
   const el = e.target.closest('[data-ta=txt]'); if (!el || e.target.closest('a')) return;
   S.editTodoId = el.closest('.todo').dataset.id; renderTodos();
-  const ed = document.querySelector('.todo-edit .rte'); ed.focus();
+  const ed = document.querySelector('.todo-edit .rte'); hydrate(ed); ed.focus();
   document.getSelection().selectAllChildren(ed); document.getSelection().collapseToEnd();
 }
 function todoFinish(save) {
   const id = S.editTodoId; const ed = document.querySelector('.todo-edit .rte'); S.editTodoId = null;
-  if (save && ed) { const html = clean(ed.innerHTML.trim()); const text = stripHtml(html).trim(); const t = S.todos.find(x => x.id === id); if (text && html !== t.html) { store.update('todos', id, { html, text }); return; } }
+  if (save && ed) { const html = clean(ed.innerHTML.trim()); const text = stripHtml(html).trim(); const t = S.todos.find(x => x.id === id); if ((text || /<img/i.test(html)) && html !== t.html) { attIds(t.html).filter(x => !attIds(html).includes(x)).forEach(x => removeAtts(`data-att="${x}"`)); store.update('todos', id, { html, text }); return; } }
   renderTodos();
 }
 document.addEventListener('click', e => { const b = e.target.closest('.todo-edit [data-ta]'); if (b) { e.stopPropagation(); todoFinish(b.dataset.ta === 'save'); } }, true);
@@ -693,6 +698,85 @@ document.addEventListener('click', e => {
   const a = e.target.closest('a[href^="https://teams.microsoft.com/"]'); if (!a) return;
   e.preventDefault(); location.href = linkHref(a.href);
 }, true);
+
+
+/* ================= Anhänge (Screenshots) ================= */
+const ATT = new Map(); // id -> thumb dataURL
+function loadImg(src) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
+function toDataUrl(img, maxW, q) {
+  const s = Math.min(1, maxW / img.naturalWidth);
+  const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/webp', q);
+}
+async function saveImage(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImg(url);
+    let w = 2400, q = 0.9, full = toDataUrl(img, w, q);
+    while (full.length > 900000 && w > 600) { w = Math.round(w * 0.8); q = Math.max(0.6, q - 0.08); full = toDataUrl(img, w, q); }
+    const thumb = toDataUrl(img, 480, 0.8);
+    const id = 'a' + uid();
+    store.put('attthumb', id, { data: thumb, w: img.naturalWidth, h: img.naturalHeight, createdAt: Date.now() });
+    store.put('attfull', id, { data: full, createdAt: Date.now() });
+    ATT.set(id, thumb);
+    return { id, thumb };
+  } finally { URL.revokeObjectURL(url); }
+}
+async function insertImages(ed, files) {
+  for (const f of files) {
+    if (!f.type.startsWith('image/')) continue;
+    toast('Screenshot wird gespeichert …');
+    const { id, thumb } = await saveImage(f);
+    ed.focus();
+    document.execCommand('insertHTML', false, `<img class="att" data-att="${id}" src="${thumb}" alt="Screenshot"><br>`);
+    toast('Screenshot angehängt');
+  }
+}
+document.addEventListener('paste', e => {
+  const ed = e.target.closest?.('.rte'); if (!ed) return;
+  const files = [...(e.clipboardData?.files || [])].filter(f => f.type.startsWith('image/'));
+  if (!files.length) return;
+  e.preventDefault(); insertImages(ed, files);
+});
+document.addEventListener('dragover', e => { if (e.target.closest?.('.rte')) e.preventDefault(); });
+document.addEventListener('drop', e => {
+  const ed = e.target.closest?.('.rte'); if (!ed) return;
+  const files = [...(e.dataTransfer?.files || [])].filter(f => f.type.startsWith('image/'));
+  if (!files.length) return;
+  e.preventDefault(); insertImages(ed, files);
+});
+// Bilder in gerenderten Bereichen nachladen
+function hydrate(root) {
+  root?.querySelectorAll('img[data-att]').forEach(async im => {
+    const id = im.dataset.att;
+    if (ATT.has(id)) { im.src = ATT.get(id); return; }
+    im.classList.add('loading');
+    const d = await store.get('attthumb', id).catch(() => null);
+    if (d?.data) { ATT.set(id, d.data); im.src = d.data; } else im.classList.add('missing');
+    im.classList.remove('loading');
+  });
+}
+const attIds = html => [...String(html || '').matchAll(/data-att="([\w-]+)"/g)].map(m => m[1]);
+function removeAtts(html) { attIds(html).forEach(id => { store.remove('attthumb', id); store.remove('attfull', id); ATT.delete(id); }); }
+// Klick auf Vorschau -> Grossansicht
+async function openLightbox(id) {
+  const lb = $('#lightbox'); lb.classList.remove('hidden');
+  const im = $('#lbImg'); im.src = ATT.get(id) || ''; $('#lbOpen').dataset.id = id;
+  const d = await store.get('attfull', id).catch(() => null);
+  if (d?.data && $('#lbOpen').dataset.id === id) im.src = d.data;
+}
+const closeLightbox = () => { $('#lightbox').classList.add('hidden'); $('#lbImg').src = ''; };
+document.addEventListener('click', e => {
+  const im = e.target.closest('img[data-att]'); if (!im || im.closest('.rte')) return;
+  e.preventDefault(); e.stopPropagation(); openLightbox(im.dataset.att);
+}, true);
+$('#lightbox').addEventListener('click', e => { if (!e.target.closest('#lbOpen')) closeLightbox(); });
+$('#lbOpen').onclick = async () => {
+  const src = $('#lbImg').src; if (!src) return;
+  const blob = await (await fetch(src)).blob(); window.open(URL.createObjectURL(blob), '_blank');
+};
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#lightbox').classList.contains('hidden')) { e.stopPropagation(); e.preventDefault(); closeLightbox(); } }, true);
 
 /* ================= Suche / Shortcuts ================= */
 $('#search').addEventListener('input', debounce(e => {
