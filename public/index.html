@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=10">
+<link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
 
@@ -78,6 +78,7 @@
           <button data-cmd="underline" title="Underline"><u>U</u></button>
           <button data-cmd="insertUnorderedList" title="Liste">•</button>
           <button data-cmd="createLink" title="Link">🔗</button>
+          <button data-color="fore" title="Schriftfarbe" class="cbtn"><span class="ca">A</span></button><button data-color="back" title="Hintergrundfarbe" class="cbtn"><span class="cm">▌</span></button>
           <span class="grow"></span>
           <button id="btnTodoCancel" class="link-btn">Abbrechen</button>
           <button id="btnTodoAdd" class="btn small primary">Hinzufügen</button>
@@ -169,6 +170,7 @@
           <button data-cmd="underline" title="Underline"><u>U</u></button>
           <button data-cmd="insertUnorderedList" title="Liste">•</button>
           <button data-cmd="createLink" title="Link">🔗</button>
+          <button data-color="fore" title="Schriftfarbe" class="cbtn"><span class="ca">A</span></button><button data-color="back" title="Hintergrundfarbe" class="cbtn"><span class="cm">▌</span></button>
           <span class="grow"></span>
           <button id="btnCancelEdit" class="link-btn">Abbrechen</button>
           <button id="btnSend" class="btn small primary">Senden</button>
@@ -193,9 +195,10 @@
   <img id="lbImg" alt="Screenshot">
   <button id="lbOpen" class="btn small">In neuem Tab öffnen</button>
 </div>
+<div id="colorPop" class="pop colorpop hidden"></div>
 <div id="pop" class="pop hidden"></div>
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="app.js?v=10"></script>
+<script type="module" src="app.js?v=11"></script>
 </body>
 </html>

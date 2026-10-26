@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=10';
+import { CONFIG } from './config.js?v=11';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -35,7 +35,10 @@ function clean(html) {
     if (n.nodeType !== 1) return;
     if (!ALLOWED.has(n.tagName)) { if (/^(SCRIPT|STYLE|IFRAME|OBJECT|EMBED)$/.test(n.tagName)) return n.remove(); walk(n); n.replaceWith(...n.childNodes); return; }
     if (n.tagName === 'IMG') { const id = n.getAttribute('data-att'); if (!id || !/^[\w-]+$/.test(id)) return n.remove(); [...n.attributes].forEach(a => n.removeAttribute(a.name)); n.setAttribute('data-att', id); n.className = 'att'; n.alt = 'Screenshot'; return; }
+    const keepC = /^(SPAN|FONT|P|DIV|LI|B|STRONG|I|EM|U)$/.test(n.tagName) ? [n.style.color, n.style.backgroundColor] : ['', ''];
     [...n.attributes].forEach(a => { if (!(n.tagName === 'A' && a.name === 'href') && a.name !== 'color') n.removeAttribute(a.name); });
+    if (/^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\))$/i.test(keepC[0] || '')) n.style.color = keepC[0];
+    if (/^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\))$/i.test(keepC[1] || '') && !/rgba\(0, 0, 0, 0\)/.test(keepC[1])) n.style.backgroundColor = keepC[1];
     if (n.tagName === 'A') { if (!/^(https?:|mailto:|onenote:)/i.test(n.getAttribute('href') || '')) n.removeAttribute('href'); n.target = '_blank'; n.rel = 'noopener'; }
     walk(n);
   });
@@ -517,6 +520,27 @@ document.addEventListener('mousedown', e => {
   if (b.dataset.cmd === 'createLink') { const u = prompt('URL'); if (u) document.execCommand('createLink', false, normUrl(u)); }
   else document.execCommand(b.dataset.cmd);
 });
+const FORE = [['Standard', '#23272e'], ['Rot', '#d32f2f'], ['Orange', '#FF6600'], ['Grün', '#2e7d32'], ['Blau', '#014f80'], ['Violett', '#7b52c9'], ['Grau', '#8a9099']];
+const BACK = [['Keine', 'transparent'], ['Gelb', '#fff3a0'], ['Grün', '#d8f0c8'], ['Blau', '#d6e8f7'], ['Rot', '#fbd5d3'], ['Orange', '#ffe0c2'], ['Violett', '#e6dcf7']];
+document.addEventListener('mousedown', e => {
+  const cb = e.target.closest('.toolbar [data-color]');
+  const pick = e.target.closest('#colorPop [data-c]');
+  if (pick) {
+    e.preventDefault();
+    const pop = $('#colorPop'); document.execCommand('styleWithCSS', false, true);
+    if (pop.dataset.mode === 'fore') document.execCommand('foreColor', false, pick.dataset.c);
+    else document.execCommand('hiliteColor', false, pick.dataset.c);
+    pop.classList.add('hidden'); return;
+  }
+  if (!cb) { if (!e.target.closest('#colorPop')) $('#colorPop').classList.add('hidden'); return; }
+  e.preventDefault();
+  const ed = cb.closest('.editor')?.querySelector('.rte'); if (ed && !ed.contains(document.activeElement)) ed.focus();
+  const mode = cb.dataset.color, list = mode === 'fore' ? FORE : BACK, pop = $('#colorPop');
+  pop.dataset.mode = mode;
+  pop.innerHTML = `<div class="cp-title">${mode === 'fore' ? 'Schriftfarbe' : 'Hintergrund'}</div>` + list.map(([n, c]) => `<button data-c="${c}" title="${n}" class="sw ${mode}" style="${mode === 'fore' ? 'color' : 'background'}:${c}">${mode === 'fore' ? 'A' : (c === 'transparent' ? '∅' : '')}</button>`).join('');
+  const r = cb.getBoundingClientRect(); pop.classList.remove('hidden');
+  pop.style.left = Math.min(r.left, innerWidth - pop.offsetWidth - 10) + 'px'; pop.style.top = (r.bottom + 6) + 'px';
+});
 $('#chat').addEventListener('click', e => {
   const b = e.target.closest('[data-ca]'); if (!b) return;
   const mid = b.closest('.msg').dataset.id; const t = task(S.openId);
@@ -526,7 +550,7 @@ $('#chat').addEventListener('click', e => {
 });
 
 /* ================= 2do ================= */
-const TB = `<div class="toolbar"><button data-cmd="bold" title="Bold"><b>B</b></button><button data-cmd="italic" title="Italic"><i>I</i></button><button data-cmd="underline" title="Underline"><u>U</u></button><button data-cmd="insertUnorderedList" title="Liste">•</button><button data-cmd="createLink" title="Link">🔗</button>`;
+const TB = `<div class="toolbar"><button data-cmd="bold" title="Bold"><b>B</b></button><button data-cmd="italic" title="Italic"><i>I</i></button><button data-cmd="underline" title="Underline"><u>U</u></button><button data-cmd="insertUnorderedList" title="Liste">•</button><button data-cmd="createLink" title="Link">🔗</button><button data-color="fore" title="Schriftfarbe" class="cbtn"><span class="ca">A</span></button><button data-color="back" title="Hintergrundfarbe" class="cbtn"><span class="cm">▌</span></button>`;
 function renderTodos() {
   if (S.editTodoId && document.querySelector('.todo-edit')?.contains(document.activeElement)) return;
   const open = S.todos.filter(t => !t.done).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
