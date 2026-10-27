@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=13';
+import { CONFIG } from './config.js?v=14';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -800,6 +800,11 @@ document.addEventListener('drop', e => {
 function hydrate(root) {
   root?.querySelectorAll('img[data-att]').forEach(async im => {
     const id = im.dataset.att;
+    if (!im.closest('.rte') && !im.parentElement.classList.contains('attw')) {
+      const w = document.createElement('span'); w.className = 'attw';
+      im.replaceWith(w); w.append(im);
+      w.insertAdjacentHTML('beforeend', '<button class="attdel" title="Bild löschen">×</button>');
+    }
     if (ATT.has(id)) { im.src = ATT.get(id); return; }
     im.classList.add('loading');
     const d = await store.get('attthumb', id).catch(() => null);
@@ -809,6 +814,22 @@ function hydrate(root) {
 }
 const attIds = html => [...String(html || '').matchAll(/data-att="([\w-]+)"/g)].map(m => m[1]);
 function removeAtts(html) { attIds(html).forEach(id => { store.remove('attthumb', id); store.remove('attfull', id); ATT.delete(id); }); }
+// Bild löschen (Ansicht) bzw. im Editor entfernen
+const stripAtt = (html, id) => String(html || '').replace(new RegExp(`<img[^>]*data-att="${id}"[^>]*>(<br>)?`, 'g'), '');
+document.addEventListener('click', e => {
+  const del = e.target.closest('.attdel'); if (!del) return;
+  e.preventDefault(); e.stopPropagation();
+  const id = del.parentElement.querySelector('img[data-att]')?.dataset.att; if (!id || !confirm('Bild löschen?')) return;
+  const msg = del.closest('#chat .msg'), td = del.closest('.todo');
+  if (msg) { const t = task(S.openId); upd(t.id, { chats: t.chats.map(c => c.id === msg.dataset.id ? { ...c, html: stripAtt(c.html, id) } : c) }); }
+  else if (td) { const t = S.todos.find(x => x.id === td.dataset.id); const html = stripAtt(t.html, id); store.update('todos', t.id, { html, text: stripHtml(html).trim() }); }
+  removeAtts(`data-att="${id}"`);
+}, true);
+document.addEventListener('click', e => {
+  const im = e.target.closest('.rte img[data-att]'); if (!im) return;
+  e.preventDefault();
+  if (confirm('Bild aus diesem Eintrag entfernen?')) { const br = im.nextSibling; im.remove(); if (br?.nodeName === 'BR') br.remove(); }
+});
 // Klick auf Vorschau -> Grossansicht
 async function openLightbox(id) {
   const lb = $('#lightbox'); lb.classList.remove('hidden');
