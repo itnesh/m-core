@@ -156,7 +156,7 @@ h3{font-size:14px;margin:0;font-weight:700}
 .title-input{flex:1;font-size:20px;font-weight:700;border:0;outline:0;padding:6px 8px;border-radius:8px}
 .title-input:focus{background:var(--bg)}
 .drawer-actions{display:flex;gap:4px}
-.drawer-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(300px,0.9fr) minmax(300px,1fr) minmax(340px,1.3fr);gap:16px;padding:16px 20px;overflow:auto}
+.drawer-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(400px,1.35fr) minmax(260px,.75fr) minmax(340px,1.2fr);gap:16px;padding:16px 20px;overflow:auto}
 .col{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px;min-height:0;overflow:auto;display:flex;flex-direction:column}
 .col-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
 .lbl{display:block;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin:14px 0 6px}
@@ -255,7 +255,7 @@ h3{font-size:14px;margin:0;font-weight:700}
   :root{--side:190px;--todo:360px}
   .layout{gap:16px;padding:16px}
   .topbar{padding:0 16px}
-  .drawer-body{grid-template-columns:minmax(260px,.9fr) minmax(260px,1fr) minmax(300px,1.2fr);gap:12px;padding:12px}
+  .drawer-body{grid-template-columns:minmax(340px,1.3fr) minmax(220px,.75fr) minmax(280px,1.1fr);gap:12px;padding:12px}
   .col{padding:14px}
 }
 @media (max-width:1100px){
@@ -400,3 +400,15 @@ img.att.missing{min-height:30px;opacity:.5}
 .msg .msg-edit{margin-top:4px;background:#fff}
 .msg.editing{border-left-color:var(--orange);background:var(--orange-soft)}
 .todo .del + .del{margin-left:-6px}
+
+/* v13 */
+.wrow{grid-template-columns:1fr 24px;grid-template-areas:"p x" "r r";row-gap:4px;padding:8px;background:#fff;border:1px solid #dfe6ea;border-radius:10px}
+.wrow select{grid-area:p}
+.wrow textarea{grid-area:r;resize:vertical;min-height:52px;width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;outline:0}
+.wrow textarea:focus{border-color:var(--blue)}
+.wrow .x{grid-area:x}
+.lnk .lt span{display:none}
+.lnk{padding:7px 10px}
+.lf-actions{align-items:center;gap:10px}
+.lf-actions .grow{flex:1}
+.col > *{flex-shrink:0}

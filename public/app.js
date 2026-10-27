@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=12';
+import { CONFIG } from './config.js?v=13';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -409,7 +409,7 @@ function renderWaits(t) {
   $('#waits').innerHTML = ws.map(w => `
     <div class="wrow" data-id="${w.id}">
       <select data-wf="person"><option value="">– allgemein –</option>${ps.map(p => `<option value="${p.id}" ${p.id === w.personId ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>
-      <input data-wf="reason" value="${esc(w.reason)}" placeholder="worauf? z.B. OK, Berechtigung">
+      <textarea data-wf="reason" rows="2" placeholder="worauf? z.B. OK, Berechtigung">${esc(w.reason)}</textarea>
       <button class="x" data-wdel="${w.id}" title="Entfernen">${svg.x}</button>
     </div>`).join('') || '<div class="muted small">Auf niemanden. „+ Eintrag“ zum Erfassen.</div>';
 }
@@ -451,20 +451,22 @@ function renderLinks(t) {
         <button class="icon-btn danger" data-la="del" title="Löschen">${svg.del}</button>
       </div>
     </div>` : `
-    <a class="lnk" href="${esc(linkHref(u.url))}" ${linkTarget(u.url)} data-id="${u.id}">
+    <a class="lnk" href="${esc(linkHref(u.url))}" ${linkTarget(u.url)} data-id="${u.id}" title="${esc(u.url)}">
       <img src="${ICON(u.type)}" alt="">
       <div class="lt"><b>${esc(u.title || hostOf(u.url))}</b><span>${esc(u.url)}</span></div>
       <button class="ed" data-la="edit" title="Bearbeiten">${svg.edit}</button>
     </a>`).join('') : '<div class="muted small">Noch keine Links.</div>';
 }
-$('#linkForm').addEventListener('keydown', e => {
-  if (e.key !== 'Enter') return; e.preventDefault();
-  const url = normUrl($('#lUrl').value); if (!url) return;
+$('#linkForm').addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+$('#linkForm').addEventListener('submit', e => e.preventDefault());
+$('#btnLinkCancel').onclick = () => hideLinkForm();
+$('#btnLinkSave').onclick = () => {
+  const url = normUrl($('#lUrl').value); if (!url) { $('#lUrl').focus(); return; }
   const t = task(S.openId);
   const ty = $('#lType').value === 'auto' ? detectType(url) : $('#lType').value;
   upd(t.id, { urls: [...(t.urls || []), { id: uid(), url, title: $('#lTitle').value.trim() || hostOf(url), type: ty }] });
-  $('#lUrl').value = ''; $('#lTitle').value = ''; $('#lType').value = 'auto'; $('#lType').dataset.manual = ''; $('#lUrl').focus();
-});
+  $('#lType').value = 'auto'; $('#lType').dataset.manual = ''; hideLinkForm();
+};
 $('#lUrl').addEventListener('input', e => { const u = e.target.value.trim(); if (u && $('#lType').dataset.manual !== '1') $('#lType').value = detectType(u) === 'Others' ? 'auto' : detectType(u); });
 $('#lType').addEventListener('change', e => e.target.dataset.manual = e.target.value === 'auto' ? '' : '1');
 $('#linkFilter').onclick = e => { const b = e.target.closest('[data-lf]'); if (!b) return; S.linkFilter = b.dataset.lf || null; renderLinks(task(S.openId)); };

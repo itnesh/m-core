@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
 
@@ -150,10 +150,15 @@
     <div class="col col-links">
       <div class="col-head"><h3>URLs</h3><button id="btnLinkNew" class="btn small add">+ Link</button></div>
       <form id="linkForm" class="link-form hidden">
-        <input id="lUrl" placeholder="URL einfügen + Enter" autocomplete="off">
+        <input id="lUrl" placeholder="URL einfügen" autocomplete="off">
         <div class="row2">
           <input id="lTitle" placeholder="Titel (optional)" autocomplete="off">
           <select id="lType" title="Typ"></select>
+        </div>
+        <div class="row2 lf-actions">
+          <span class="grow"></span>
+          <button type="button" id="btnLinkCancel" class="link-btn">Zurück</button>
+          <button type="button" id="btnLinkSave" class="btn small primary">Speichern</button>
         </div>
       </form>
       <div id="linkFilter" class="chips"></div>
@@ -199,6 +204,6 @@
 <div id="pop" class="pop hidden"></div>
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="app.js?v=12"></script>
+<script type="module" src="app.js?v=13"></script>
 </body>
 </html>
