@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=26">
+<link rel="stylesheet" href="style.css?v=27">
 </head>
 <body>
 
@@ -142,13 +142,14 @@
       <label class="lbl">Description</label>
       <textarea id="fDesc" rows="9" placeholder="Beschreibung"></textarea>
 
-      <label class="lbl">Status</label><select id="fStatus"></select>
-
-      <label class="lbl">Prio</label>
-      <div id="fPrio" class="seg">
-        <button data-v="1" class="p1">High</button>
-        <button data-v="2" class="p2">Medium</button>
-        <button data-v="3" class="p3">Low</button>
+      <div class="grid2 sp-row">
+        <div><label class="lbl">Status</label><select id="fStatus"></select></div>
+        <div><label class="lbl">Prio</label>
+          <div id="fPrio" class="seg">
+            <button data-v="1" class="p1">High</button>
+            <button data-v="2" class="p2">Medium</button>
+            <button data-v="3" class="p3">Low</button>
+          </div></div>
       </div>
 
       <label class="lbl">Progress <span id="fProgVal" class="muted"></span></label>
@@ -253,6 +254,6 @@
 <div id="pop" class="pop hidden"></div>
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="app.js?v=26"></script>
+<script type="module" src="app.js?v=27"></script>
 </body>
 </html>
