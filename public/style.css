@@ -537,3 +537,11 @@ input.req{border-color:#f3b78f!important}
 .evn.n-pre{color:#9a6200}
 .evn.n-pip{color:#c24e00}
 .evn.admin{color:var(--muted);font-style:italic}
+
+/* v20 Admin/Support */
+.titem.fixed{border-left-color:#9aa3ae;background:#fafbfc}
+.titem.fixed[data-k=support]{border-left-color:#c2c8d0}
+.ti-title.nolink{cursor:default}.ti-title.nolink:hover{text-decoration:none;color:inherit}
+.ti-eff{font-size:12px;font-weight:700;color:var(--navy);white-space:nowrap}
+.tbar i.rest2{background:#dde1e6}
+.trest b.neg{color:var(--amber)}

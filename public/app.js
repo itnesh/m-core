@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=19';
+import { CONFIG } from './config.js?v=20';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -901,7 +901,7 @@ function parseAmt(s, work) {
   return Math.round(parseFloat(s) * 60) || 0;
 }
 const dayOf = d => S.days[d] || { items: [], touched: [], work: null };
-function saveDay(d, patch) { const cur = dayOf(d); const nd = { items: cur.items || [], touched: cur.touched || [], work: cur.work ?? null, ...patch, updatedAt: Date.now() }; S.days[d] = nd; store.put('timedays', d, nd); }
+function saveDay(d, patch) { const cur = dayOf(d); const nd = { items: cur.items || [], touched: cur.touched || [], work: cur.work ?? null, admin: cur.admin || null, support: cur.support || null, ...patch, updatedAt: Date.now() }; S.days[d] = nd; store.put('timedays', d, nd); }
 function touchTask(id) { const d = todayIso(), cur = dayOf(d); if ((cur.touched || []).includes(id)) return; saveDay(d, { touched: [...(cur.touched || []), id] }); }
 function addDays(iso, n) { const d = new Date(iso + 'T12:00'); d.setDate(d.getDate() + n); return isoOf(d); }
 const WDL = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
@@ -917,6 +917,19 @@ function pipOf(t) {
 function pathLabel(t) { const p = pipOf(t), q = prepipOf(t); return [p && 'PIP ' + p, q && 'PrePIP ' + q].filter(Boolean).join(' › '); }
 const TCOL = ['#FF6600', '#014f80', '#7b52c9', '#5fa832', '#c0392b', '#d39a2b', '#00897b', '#8e6cc4', '#5c6bc0', '#e57373'];
 
+// Admin/Support: fest pro Tag, Differenz zur Arbeitszeit je 50/50 verteilt
+function fixedOf(day) {
+  const a = day.admin?.min || 0, s = day.support?.min || 0;
+  const tasks = (day.items || []).reduce((x, i) => x + (i.min || 0), 0);
+  if (day.work == null) return { a, s, effA: a, effS: s, diff: 0, tasks };
+  const avail = day.work - tasks, diff = avail - a - s;
+  if (avail <= 0) return { a, s, effA: 0, effS: 0, diff, tasks };
+  let effA = a + diff / 2, effS = s + diff / 2;
+  if (effA < 0) { effA = 0; effS = avail; }
+  if (effS < 0) { effS = 0; effA = avail; }
+  effA = Math.round(effA);
+  return { a, s, effA, effS: avail - effA, diff, tasks };
+}
 function renderTime() {
   const d = S.tday, day = dayOf(d), work = day.work;
   const dt = new Date(d + 'T12:00');
@@ -926,10 +939,19 @@ function renderTime() {
   const items = day.items || [];
   const sum = items.reduce((a, i) => a + (i.min || 0), 0);
   const base = work || TARGET;
-  const rest = (work ?? 0) - sum;
+  const fx = fixedOf(day); const all = sum + fx.effA + fx.effS; const den = Math.max(base, all, 1);
   // Balken
-  $('#tBar').innerHTML = items.map((i, k) => `<i style="width:${Math.min(100, (i.min || 0) / Math.max(base, sum) * 100)}%;background:${TCOL[k % TCOL.length]}" title="${esc(task(i.taskId)?.title || '')}"></i>`).join('')
-    + (rest > 0 ? `<i class="rest" style="width:${rest / Math.max(base, sum) * 100}%" title="Admin / Support"></i>` : '');
+  $('#tBar').innerHTML = items.map((i, k) => `<i style="width:${(i.min || 0) / den * 100}%;background:${TCOL[k % TCOL.length]}" title="${esc(task(i.taskId)?.title || '')}"></i>`).join('')
+    + `<i class="rest" style="width:${fx.effA / den * 100}%" title="Admin"></i><i class="rest2" style="width:${fx.effS / den * 100}%" title="Support"></i>`;
+  if (!S.tfEdit && !$('#tFixed').contains(document.activeElement)) {
+    $('#tFixed').innerHTML = [['admin', 'Admin', fx.effA, fx.a], ['support', 'Support', fx.effS, fx.s]].map(([k, n, eff, own]) => `
+      <div class="titem fixed" data-k="${k}">
+        <div class="ti-top"><span class="ti-title nolink">${n}</span><span class="ti-eff" title="inkl. Anteil Differenz zur Arbeitszeit">= ${fmtHM(eff)}${work ? ' · ' + Math.round(eff / work * 100) + '%' : ''}</span></div>
+        <div class="ti-row"><input class="ti-amt tf-amt" value="${own ? fmtHM(own) : ''}" placeholder="0:00" title="Selbst erfasst. Differenz zur Arbeitszeit wird 50/50 auf Admin und Support verteilt.">
+          <span class="ti-pct">${fx.diff && work != null ? (fx.diff > 0 ? '+' : '−') + fmtHM(Math.abs(fx.diff) / 2) : ''}</span>
+          <input class="ti-com tf-com" value="${esc(day[k]?.comment || '')}" placeholder="Kommentar"></div>
+      </div>`).join('');
+  }
   $('#timeTabSum').textContent = sum ? fmtHM(sum) : '';
   if (!S.tEdit && !$('#tItems').contains(document.activeElement)) {
     $('#tItems').innerHTML = items.length ? items.map((i, k) => { const t = task(i.taskId); const pl = t ? pathLabel(t) : ''; return `
@@ -941,10 +963,12 @@ function renderTime() {
           <input class="ti-com" value="${esc(i.comment || '')}" placeholder="Kommentar"></div>
       </div>`; }).join('') : '<div class="muted small" style="padding:6px 2px">Noch nichts erfasst. Vorschlag unten anklicken oder Task suchen.</div>';
   }
+  const booked0 = sum + fx.a + fx.s;
   $('#tRest').innerHTML = work == null
-    ? `<span class="muted">Erfasst ${fmtHM(sum)} · Arbeitszeit oben eintragen</span>`
-    : rest >= 0 ? `<span>Admin / Support</span><b>${fmtHM(rest)}</b><span class="muted">${Math.round(rest / work * 100)}%</span>`
-    : `<span class="over">Überbucht um</span><b class="over">${fmtHM(-rest)}</b>`;
+    ? `<span class="muted">Erfasst ${fmtHM(booked0)} · Arbeitszeit oben eintragen</span>`
+    : fx.effA + fx.effS + sum > work + 1
+      ? `<span class="over">Überbucht (Tasks > Arbeitszeit)</span><b class="over">${fmtHM(sum - work)}</b>`
+      : `<span>Erfasst ${fmtHM(booked0)} von ${Math.round(work / 60 * 100) / 100} h</span><b class="${fx.diff < 0 ? 'neg' : ''}">${fx.diff === 0 ? 'aufgeht ✓' : (fx.diff > 0 ? '+' : '−') + fmtHM(Math.abs(fx.diff))}</b><span class="muted small">${fx.diff ? '→ je ½ Admin/Support' : ''}</span>`;
   // Vorschläge
   const booked = new Set(items.map(i => i.taskId));
   const touched = (day.touched || []).filter(id => task(id) && !booked.has(id));
@@ -970,6 +994,14 @@ $('#tItems').addEventListener('click', e => {
   const del = e.target.closest('[data-tdel]'); if (del) { saveDay(S.tday, { items: (dayOf(S.tday).items || []).filter(i => i.id !== del.dataset.tdel) }); renderTime(); return; }
   const op = e.target.closest('[data-open]'); if (op && task(op.dataset.open)) openTask(op.dataset.open);
 });
+function saveFixed() {
+  const rd = k => { const r = $(`#tFixed [data-k="${k}"]`); return { min: parseAmt(r.querySelector('.tf-amt').value, dayOf(S.tday).work), comment: r.querySelector('.tf-com').value.trim() }; };
+  saveDay(S.tday, { admin: rd('admin'), support: rd('support') });
+}
+$('#tFixed').addEventListener('focusin', () => { S.tfEdit = true; });
+$('#tFixed').addEventListener('change', () => { saveFixed(); renderTime(); });
+$('#tFixed').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('input')) { e.preventDefault(); e.target.blur(); } });
+$('#tFixed').addEventListener('focusout', () => setTimeout(() => { if (!$('#tFixed').contains(document.activeElement)) { S.tfEdit = false; saveFixed(); renderTime(); } }, 50));
 $('#tSugg').onclick = e => { const b = e.target.closest('[data-sadd]'); if (b) addTimeItem(b.dataset.sadd); };
 $('#tAdd').addEventListener('change', e => { const t = S.tasks.find(x => x.title === e.target.value); if (t) { addTimeItem(t.id); e.target.value = ''; } });
 $('#tAdd').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const q = e.target.value.toLowerCase(); const t = S.tasks.find(x => (x.title || '').toLowerCase() === q) || S.tasks.find(x => (x.title || '').toLowerCase().includes(q)); if (t && q) { addTimeItem(t.id); e.target.value = ''; } } });
@@ -1005,12 +1037,14 @@ function evalEntries(from, to) {
       const path = [pip && 'PIP ' + pip, pre && 'PrePIP ' + pre, name].filter(Boolean);
       out.push({ date: d, min: i.min, comment: i.comment || '', taskId: i.taskId, task: name, pip: pip ? 'PIP ' + pip : '', pre: pre ? 'PrePIP ' + pre : '', path });
     });
-    if (day.work != null && day.work > sum) out.push({ date: d, min: day.work - sum, admin: true, task: ADMIN, pip: '', pre: '', path: [ADMIN] });
+    const fx = fixedOf(day);
+    if (fx.effA) out.push({ date: d, min: fx.effA, admin: true, comment: day.admin?.comment || '', task: 'Admin', pip: '', pre: '', path: ['Admin'] });
+    if (fx.effS) out.push({ date: d, min: fx.effS, admin: true, comment: day.support?.comment || '', task: 'Support', pip: '', pre: '', path: ['Support'] });
   });
   return out;
 }
-const ADMIN = 'Admin / Support';
-const kindCls = k => k === ADMIN ? 'admin' : /^PIP /.test(k) ? 'n-pip' : /^PrePIP /.test(k) ? 'n-pre' : 'n-task';
+const ADMIN = 'Admin / Support'; const isAS = k => k === 'Admin' || k === 'Support';
+const kindCls = k => isAS(k) ? 'admin' : /^PIP /.test(k) ? 'n-pip' : /^PrePIP /.test(k) ? 'n-pre' : 'n-task';
 function renderEval() {
   const from = $('#evFrom').value, to = $('#evTo').value; if (!from || !to) return;
   const es = evalEntries(from, to);
@@ -1027,7 +1061,7 @@ function renderEval() {
       if (idx === e.path.length - 1 && e.comment) n.com.push(fmtDate(e.date) + ': ' + e.comment);
     });
   });
-  const sortM = m => [...m.entries()].sort((x, y) => (x[0] === ADMIN) - (y[0] === ADMIN) || y[1].min - x[1].min);
+  const sortM = m => [...m.entries()].sort((x, y) => isAS(x[0]) - isAS(y[0]) || y[1].min - x[1].min);
   const bar = m => `<span class="evbar"><i style="width:${total ? m / total * 100 : 0}%"></i></span><b>${fmtH(m)}</b><span class="muted">${total ? Math.round(m / total * 100) : 0}%</span>`;
   const node = (k, n, key, lvl) => {
     const lab = `<span class="evn ${kindCls(k)}">${esc(k)}${n.com.length ? ' <span class="muted">💬' + n.com.length + '</span>' : ''}</span>${bar(n.min)}`;
@@ -1047,9 +1081,9 @@ function renderEval() {
     r.c[pk] = (r.c[pk] || 0) + e.min; r.tot += e.min;
   });
   const colTot = {}; es.forEach(e => { const [pk] = periodKey(e.date, g); colTot[pk] = (colTot[pk] || 0) + e.min; });
-  const sr = [...rows.entries()].sort((a, b) => (a[0] === ADMIN) - (b[0] === ADMIN) || b[1].tot - a[1].tot);
+  const sr = [...rows.entries()].sort((a, b) => isAS(a[0]) - isAS(b[0]) || b[1].tot - a[1].tot);
   $('#evTime').innerHTML = total ? `<table class="evt"><thead><tr><th>${depth === 1 ? 'PIP / PrePIP / Task' : depth === 2 ? '… › nächste Ebene' : 'bis Task'}</th>${cols.map(([, l]) => `<th>${l}</th>`).join('')}<th>Total</th></tr></thead>
-    <tbody>${sr.map(([k, r]) => `<tr class="${k === ADMIN ? 'admin' : ''}"><td>${esc(k)}</td>${cols.map(([pk]) => `<td>${r.c[pk] ? fmtHM(r.c[pk]) : ''}</td>`).join('')}<td><b>${fmtHM(r.tot)}</b></td></tr>`).join('')}</tbody>
+    <tbody>${sr.map(([k, r]) => `<tr class="${isAS(k) ? 'admin' : ''}"><td>${esc(k)}</td>${cols.map(([pk]) => `<td>${r.c[pk] ? fmtHM(r.c[pk]) : ''}</td>`).join('')}<td><b>${fmtHM(r.tot)}</b></td></tr>`).join('')}</tbody>
     <tfoot><tr><td>Total</td>${cols.map(([pk]) => `<td>${fmtHM(colTot[pk])}</td>`).join('')}<td>${fmtHM(total)}</td></tr></tfoot></table>` : '';
 }
 $('#evTree').addEventListener('toggle', e => { const d = e.target.closest('details'); if (!d) return; d.open ? S.evOpen.add(d.dataset.k) : S.evOpen.delete(d.dataset.k); }, true);
