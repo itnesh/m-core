@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=18">
+<link rel="stylesheet" href="style.css?v=19">
 </head>
 <body>
 
@@ -178,7 +178,6 @@
           <input id="lTitle" placeholder="Titel (optional)" autocomplete="off">
           <select id="lType" title="Typ"></select>
         </div>
-        <div id="lPipRow" class="row2 hidden"><label class="mini lpip">gehört zu PIP <input id="lPip" placeholder="Nr." inputmode="numeric" autocomplete="off"></label></div>
         <div class="row2 lf-actions">
           <span class="grow"></span>
           <button type="button" id="btnLinkCancel" class="link-btn">Zurück</button>
@@ -226,10 +225,9 @@
     <div class="ev-col"><h3>PIP › PrePIP › Task</h3><div id="evTree" class="ev-tree"></div></div>
     <div class="ev-col"><div class="ev-th"><h3>Zeitverlauf</h3>
       <select id="evGran"><option value="day">Tag</option><option value="week" selected>Woche</option><option value="month">Monat</option><option value="quarter">Quartal</option></select>
-      <select id="evLevel"><option value="pip">PIP</option><option value="pre">PrePIP</option><option value="task">Task</option></select></div>
+      <select id="evLevel"><option value="1">Oberste Ebene</option><option value="2">2 Ebenen</option><option value="3">Bis Task</option></select></div>
       <div id="evTime" class="ev-time"></div></div>
   </div>
-  <details class="ev-map"><summary>PrePIP › PIP Zuordnung</summary><p class="muted small">Wird automatisch übernommen, wenn ein Task beide Jira-Links hat. Sonst hier die PIP-Nummer eintragen.</p><div id="evMap"></div></details>
 </section>
 
 <section id="recModal" class="modal hidden">
@@ -249,6 +247,6 @@
 <div id="pop" class="pop hidden"></div>
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="app.js?v=18"></script>
+<script type="module" src="app.js?v=19"></script>
 </body>
 </html>

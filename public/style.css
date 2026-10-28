@@ -523,3 +523,17 @@ input.req{border-color:#f3b78f!important}
 
 .lpip{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);width:100%}
 .lpip input{width:110px!important}
+
+/* v19 Baum generisch */
+.ev-n > summary,.ev-n.leaf{display:grid;grid-template-columns:minmax(0,1fr) 120px 64px 40px;align-items:center;gap:8px;padding:6px;border-radius:8px;font-size:13px}
+.ev-n > summary{cursor:pointer}
+.ev-n > summary:hover{background:var(--bg)}
+.ev-n.lv1{border-bottom:1px solid var(--line2)}
+.ev-n.lv1 > summary,.ev-n.leaf.lv1{font-weight:700;font-size:14px}
+.ev-n.lv2{margin-left:18px}.ev-n.lv2 > summary{font-weight:600}
+.ev-n.lv3{margin-left:36px}
+.ev-n.leaf.lv2,.ev-n.leaf.lv3{font-weight:400;color:#3b4250}
+.evn.n-pip::before{content:"PIP";display:none}
+.evn.n-pre{color:#9a6200}
+.evn.n-pip{color:#c24e00}
+.evn.admin{color:var(--muted);font-style:italic}

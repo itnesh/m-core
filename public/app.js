@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=18';
+import { CONFIG } from './config.js?v=19';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -479,17 +479,11 @@ $('#btnLinkSave').onclick = () => {
   const ty = $('#lType').value === 'auto' ? detectType(url) : $('#lType').value;
   const title = $('#lTitle').value.trim();
   if (isJira(ty) && !/^\d+$/.test(title)) { toast(`${ty}: Titel = Nummer (nur Ziffern, Pflicht)`); $('#lTitle').focus(); return; }
-  const pipNr = $('#lPip').value.replace(/\D/g, '');
-  if (ty === 'Jira PrePIP' && pipNr && S.pmap[title]?.pip !== pipNr) { store.put('prepipmap', title, { pip: pipNr }); S.pmap[title] = { pip: pipNr }; }
   upd(t.id, { urls: [...(t.urls || []), { id: uid(), url, title: title || hostOf(url), type: ty }] });
   $('#lType').value = 'auto'; $('#lType').dataset.manual = ''; hideLinkForm();
 };
 function linkTitleHint() {
   const u = $('#lUrl').value.trim(); const ty = $('#lType').value === 'auto' ? detectType(u) : $('#lType').value;
-  $('#lPipRow').classList.toggle('hidden', ty !== 'Jira PrePIP');
-  setTimeout(() => { if (ty !== 'Jira PrePIP') return; const n = $('#lTitle').value.trim(); const t = task(S.openId);
-    const known = (S.pmap[n] && S.pmap[n].pip) || (t && linkNrs(t, 'Jira PIP')[0]) || '';
-    if (!$('#lPip').value && known) $('#lPip').value = known; }, 0);
   $('#lTitle').placeholder = isJira(ty) ? 'Nummer (Pflicht, nur Ziffern)' : 'Titel (optional)';
   $('#lTitle').classList.toggle('req', isJira(ty));
   if (isJira(ty) && !$('#lTitle').value) { const n = nrOf({ url: u, type: ty, title: '' }); if (n) $('#lTitle').value = n; }
@@ -547,7 +541,7 @@ function renderChat(t) {
 function showChatEditor() { $('#chatEditor').classList.remove('hidden'); $('#chatInput').focus(); }
 function hideChatEditor() { S.editMsgId = null; $('#chatInput').innerHTML = ''; $('#chatEditor').classList.add('hidden'); }
 $('#btnChatNew').onclick = () => { if (S.editMsgId) finishMsgEdit(false); $('#chatInput').innerHTML = ''; showChatEditor(); };
-function hideLinkForm() { $('#linkForm').classList.add('hidden'); $('#lUrl').value = ''; $('#lTitle').value = ''; $('#lPip').value = ''; $('#lPipRow').classList.add('hidden'); }
+function hideLinkForm() { $('#linkForm').classList.add('hidden'); $('#lUrl').value = ''; $('#lTitle').value = ''; }
 $('#btnLinkNew').onclick = () => { const f = $('#linkForm'); if (f.classList.contains('hidden')) { f.classList.remove('hidden'); $('#lUrl').focus(); } else hideLinkForm(); };
 function sendChat() {
   const html = clean($('#chatInput').innerHTML.trim());
@@ -917,7 +911,6 @@ function prepipOf(t) { return linkNrs(t, 'Jira PrePIP')[0] || ''; }
 function pipOf(t) {
   const p = linkNrs(t, 'Jira PIP')[0]; if (p) return p;
   const pre = prepipOf(t); if (!pre) return '';
-  if (S.pmap[pre]?.pip) return S.pmap[pre].pip;
   for (const x of S.tasks) if (linkNrs(x, 'Jira PrePIP').includes(pre) && linkNrs(x, 'Jira PIP')[0]) return linkNrs(x, 'Jira PIP')[0];
   return '';
 }
@@ -1007,64 +1000,58 @@ function evalEntries(from, to) {
       if (!i.min) return; sum += i.min;
       const t = task(i.taskId);
       const pip = t ? pipOf(t) : '', pre = t ? prepipOf(t) : '';
-      out.push({ date: d, min: i.min, comment: i.comment || '', taskId: i.taskId, task: t?.title || '(gelöscht)',
-        pip: pip ? 'PIP ' + pip : 'ohne PIP', pre: pre ? 'PrePIP ' + pre : 'ohne PrePIP' });
+      const name = t?.title || '(gelöschter Task)';
+      // Pfad: PIP > PrePIP > Task, fehlende Ebenen fallen weg
+      const path = [pip && 'PIP ' + pip, pre && 'PrePIP ' + pre, name].filter(Boolean);
+      out.push({ date: d, min: i.min, comment: i.comment || '', taskId: i.taskId, task: name, pip: pip ? 'PIP ' + pip : '', pre: pre ? 'PrePIP ' + pre : '', path });
     });
-    if (day.work != null && day.work > sum) out.push({ date: d, min: day.work - sum, admin: true, task: 'Admin / Support', pip: 'Admin / Support', pre: 'Admin / Support' });
+    if (day.work != null && day.work > sum) out.push({ date: d, min: day.work - sum, admin: true, task: ADMIN, pip: '', pre: '', path: [ADMIN] });
   });
   return out;
 }
 const ADMIN = 'Admin / Support';
+const kindCls = k => k === ADMIN ? 'admin' : /^PIP /.test(k) ? 'n-pip' : /^PrePIP /.test(k) ? 'n-pre' : 'n-task';
 function renderEval() {
   const from = $('#evFrom').value, to = $('#evTo').value; if (!from || !to) return;
   const es = evalEntries(from, to);
   const total = es.reduce((a, e) => a + e.min, 0);
   const work = Object.keys(S.days).filter(d => d >= from && d <= to).reduce((a, d) => a + (S.days[d].work || 0), 0);
   $('#evSum').innerHTML = `Total erfasst <b>${fmtH(total)}</b> · Arbeitszeit <b>${fmtH(work)}</b> · Tage <b>${new Set(es.map(e => e.date)).size}</b>`;
-  // Baum PIP > PrePIP > Task
-  const tree = new Map();
+  // Baum
+  const root = { ch: new Map() };
   es.forEach(e => {
-    const a = tree.get(e.pip) || tree.set(e.pip, { min: 0, ch: new Map() }).get(e.pip); a.min += e.min;
-    if (e.admin) return;
-    const b = a.ch.get(e.pre) || a.ch.set(e.pre, { min: 0, ch: new Map() }).get(e.pre); b.min += e.min;
-    const c = b.ch.get(e.task) || b.ch.set(e.task, { min: 0, com: [] }).get(e.task); c.min += e.min; if (e.comment) c.com.push(fmtDate(e.date) + ': ' + e.comment);
+    let n = root;
+    e.path.forEach((k, idx) => {
+      if (!n.ch.has(k)) n.ch.set(k, { min: 0, ch: new Map(), com: [] });
+      n = n.ch.get(k); n.min += e.min;
+      if (idx === e.path.length - 1 && e.comment) n.com.push(fmtDate(e.date) + ': ' + e.comment);
+    });
   });
   const sortM = m => [...m.entries()].sort((x, y) => (x[0] === ADMIN) - (y[0] === ADMIN) || y[1].min - x[1].min);
   const bar = m => `<span class="evbar"><i style="width:${total ? m / total * 100 : 0}%"></i></span><b>${fmtH(m)}</b><span class="muted">${total ? Math.round(m / total * 100) : 0}%</span>`;
-  $('#evTree').innerHTML = total ? sortM(tree).map(([k, a]) => a.ch.size ? `
-    <details class="ev-l1" ${S.evOpen.has(k) ? 'open' : ''} data-k="${esc(k)}"><summary><span class="evn">${esc(k)}</span>${bar(a.min)}</summary>
-      ${sortM(a.ch).map(([k2, b]) => `<details class="ev-l2" ${S.evOpen.has(k + '|' + k2) ? 'open' : ''} data-k="${esc(k + '|' + k2)}"><summary><span class="evn">${esc(k2)}</span>${bar(b.min)}</summary>
-        ${sortM(b.ch).map(([k3, c]) => `<div class="ev-l3" title="${esc(c.com.join('\n'))}"><span class="evn">${esc(k3)}${c.com.length ? ' <span class="muted">💬' + c.com.length + '</span>' : ''}</span>${bar(c.min)}</div>`).join('')}
-      </details>`).join('')}
-    </details>` : `<div class="ev-l1 flat ${k === ADMIN ? 'admin' : ''}"><span class="evn">${esc(k)}</span>${bar(a.min)}</div>`).join('') : '<div class="muted" style="padding:20px">Keine Zeiten im gewählten Zeitraum.</div>';
+  const node = (k, n, key, lvl) => {
+    const lab = `<span class="evn ${kindCls(k)}">${esc(k)}${n.com.length ? ' <span class="muted">💬' + n.com.length + '</span>' : ''}</span>${bar(n.min)}`;
+    return n.ch.size
+      ? `<details class="ev-n lv${lvl}" ${S.evOpen.has(key) ? 'open' : ''} data-k="${esc(key)}"><summary>${lab}</summary>${sortM(n.ch).map(([k2, n2]) => node(k2, n2, key + '|' + k2, lvl + 1)).join('')}</details>`
+      : `<div class="ev-n leaf lv${lvl}" title="${esc(n.com.join('\n'))}">${lab}</div>`;
+  };
+  $('#evTree').innerHTML = total ? sortM(root.ch).map(([k, n]) => node(k, n, k, 1)).join('') : '<div class="muted" style="padding:20px">Keine Zeiten im gewählten Zeitraum.</div>';
   // Zeitverlauf
-  const g = $('#evGran').value, lvl = $('#evLevel').value;
+  const g = $('#evGran').value, depth = +$('#evLevel').value;
   const per = new Map(); es.forEach(e => { const [k, l] = periodKey(e.date, g); per.set(k, l); });
   const cols = [...per.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   const rows = new Map();
   es.forEach(e => {
-    const key = lvl === 'pip' ? e.pip : lvl === 'pre' ? (e.admin ? ADMIN : e.pip + ' › ' + e.pre) : (e.admin ? ADMIN : e.pip + ' › ' + e.pre + ' › ' + e.task);
+    const key = e.path.slice(0, depth).join(' › ');
     const r = rows.get(key) || rows.set(key, { tot: 0, c: {} }).get(key); const [pk] = periodKey(e.date, g);
     r.c[pk] = (r.c[pk] || 0) + e.min; r.tot += e.min;
   });
   const colTot = {}; es.forEach(e => { const [pk] = periodKey(e.date, g); colTot[pk] = (colTot[pk] || 0) + e.min; });
   const sr = [...rows.entries()].sort((a, b) => (a[0] === ADMIN) - (b[0] === ADMIN) || b[1].tot - a[1].tot);
-  $('#evTime').innerHTML = total ? `<table class="evt"><thead><tr><th>${lvl === 'pip' ? 'PIP' : lvl === 'pre' ? 'PIP › PrePIP' : 'PIP › PrePIP › Task'}</th>${cols.map(([, l]) => `<th>${l}</th>`).join('')}<th>Total</th></tr></thead>
+  $('#evTime').innerHTML = total ? `<table class="evt"><thead><tr><th>${depth === 1 ? 'PIP / PrePIP / Task' : depth === 2 ? '… › nächste Ebene' : 'bis Task'}</th>${cols.map(([, l]) => `<th>${l}</th>`).join('')}<th>Total</th></tr></thead>
     <tbody>${sr.map(([k, r]) => `<tr class="${k === ADMIN ? 'admin' : ''}"><td>${esc(k)}</td>${cols.map(([pk]) => `<td>${r.c[pk] ? fmtHM(r.c[pk]) : ''}</td>`).join('')}<td><b>${fmtHM(r.tot)}</b></td></tr>`).join('')}</tbody>
     <tfoot><tr><td>Total</td>${cols.map(([pk]) => `<td>${fmtHM(colTot[pk])}</td>`).join('')}<td>${fmtHM(total)}</td></tr></tfoot></table>` : '';
-  // PrePIP -> PIP Zuordnung
-  const pres = new Map();
-  S.tasks.forEach(t => linkNrs(t, 'Jira PrePIP').forEach(n => { if (!pres.has(n)) pres.set(n, []); pres.get(n).push(t.title); }));
-  if (!$('#evMap').contains(document.activeElement)) {
-    $('#evMap').innerHTML = pres.size ? [...pres.entries()].sort().map(([n, ts]) => {
-      const auto = S.tasks.find(x => linkNrs(x, 'Jira PrePIP').includes(n) && linkNrs(x, 'Jira PIP')[0]);
-      const autoPip = auto ? linkNrs(auto, 'Jira PIP')[0] : '';
-      return `<div class="mrow"><span class="mpre">PrePIP ${esc(n)}</span><span class="muted small mt">${esc(ts.slice(0, 3).join(', '))}${ts.length > 3 ? ' …' : ''}</span>
-        <label class="mini">PIP <input data-pre="${esc(n)}" value="${esc(S.pmap[n]?.pip || '')}" placeholder="${autoPip ? 'auto ' + autoPip : 'Nr.'}" inputmode="numeric"></label></div>`;
-    }).join('') : '<div class="muted small">Noch keine Jira PrePIP-Links.</div>';
-  }
 }
-$('#evMap').addEventListener('change', e => { const i = e.target.closest('[data-pre]'); if (!i) return; const v = i.value.replace(/\D/g, ''); store.put('prepipmap', i.dataset.pre, { pip: v }); S.pmap[i.dataset.pre] = { pip: v }; renderEval(); });
 $('#evTree').addEventListener('toggle', e => { const d = e.target.closest('details'); if (!d) return; d.open ? S.evOpen.add(d.dataset.k) : S.evOpen.delete(d.dataset.k); }, true);
 function evPreset(p) {
   const t = new Date(); let a, b = isoOf(t);
