@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=21';
+import { CONFIG } from './config.js?v=22';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -922,7 +922,7 @@ const TCOL = ['#FF6600', '#014f80', '#7b52c9', '#5fa832', '#c0392b', '#d39a2b', 
 function shareOf(day) {
   if (day.asShare != null) return day.asShare;
   const a = day.admin?.min || 0, s = day.support?.min || 0;
-  return a + s ? Math.round(a / (a + s) * 100) : 50;
+  return a + s ? Math.round(a / (a + s) * 100) : 80;
 }
 function fixedOf(day) {
   const tasks = (day.items || []).reduce((x, i) => x + (i.min || 0), 0);
@@ -969,7 +969,8 @@ function renderTime() {
   $('#tRest').innerHTML = work == null
     ? `<span class="muted">Erfasst ${fmtHM(sum)} · Arbeitszeit oben eintragen</span>`
     : fx.over ? `<span class="over">Überbucht (Tasks > Arbeitszeit)</span><b class="over">${fmtHM(fx.over)}</b>`
-    : `<span>Tasks ${fmtHM(sum)} + Admin/Support ${fmtHM(fx.rest)}</span><b>= ${Math.round(work / 60 * 100) / 100} h</b>`;
+    : '';
+  $('#tRest').classList.toggle('hidden', !$('#tRest').innerHTML);
   // Vorschläge
   const booked = new Set(items.map(i => i.taskId));
   const touched = (day.touched || []).filter(id => task(id) && !booked.has(id));
