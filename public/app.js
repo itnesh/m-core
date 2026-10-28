@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=17';
+import { CONFIG } from './config.js?v=18';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -479,11 +479,17 @@ $('#btnLinkSave').onclick = () => {
   const ty = $('#lType').value === 'auto' ? detectType(url) : $('#lType').value;
   const title = $('#lTitle').value.trim();
   if (isJira(ty) && !/^\d+$/.test(title)) { toast(`${ty}: Titel = Nummer (nur Ziffern, Pflicht)`); $('#lTitle').focus(); return; }
+  const pipNr = $('#lPip').value.replace(/\D/g, '');
+  if (ty === 'Jira PrePIP' && pipNr && S.pmap[title]?.pip !== pipNr) { store.put('prepipmap', title, { pip: pipNr }); S.pmap[title] = { pip: pipNr }; }
   upd(t.id, { urls: [...(t.urls || []), { id: uid(), url, title: title || hostOf(url), type: ty }] });
   $('#lType').value = 'auto'; $('#lType').dataset.manual = ''; hideLinkForm();
 };
 function linkTitleHint() {
   const u = $('#lUrl').value.trim(); const ty = $('#lType').value === 'auto' ? detectType(u) : $('#lType').value;
+  $('#lPipRow').classList.toggle('hidden', ty !== 'Jira PrePIP');
+  setTimeout(() => { if (ty !== 'Jira PrePIP') return; const n = $('#lTitle').value.trim(); const t = task(S.openId);
+    const known = (S.pmap[n] && S.pmap[n].pip) || (t && linkNrs(t, 'Jira PIP')[0]) || '';
+    if (!$('#lPip').value && known) $('#lPip').value = known; }, 0);
   $('#lTitle').placeholder = isJira(ty) ? 'Nummer (Pflicht, nur Ziffern)' : 'Titel (optional)';
   $('#lTitle').classList.toggle('req', isJira(ty));
   if (isJira(ty) && !$('#lTitle').value) { const n = nrOf({ url: u, type: ty, title: '' }); if (n) $('#lTitle').value = n; }
@@ -505,6 +511,7 @@ $('#lUrl').addEventListener('paste', e => {
   $('#lTitle').value = isJira(ty) ? (nrOf({ url, type: ty, title: '' }) || (label.match(/(?:PRE)?PIP-(\d+)/i) || [])[1] || '') : label.replace(/\s+-\s+Migros-Jira$/, '').slice(0, 120);
   linkTitleHint();
 });
+$('#lTitle').addEventListener('input', () => linkTitleHint());
 $('#lType').addEventListener('change', e => { e.target.dataset.manual = e.target.value === 'auto' ? '' : '1'; linkTitleHint(); });
 $('#linkFilter').onclick = e => { const b = e.target.closest('[data-lf]'); if (!b) return; S.linkFilter = b.dataset.lf || null; renderLinks(task(S.openId)); };
 $('#links').addEventListener('click', e => {
@@ -540,7 +547,7 @@ function renderChat(t) {
 function showChatEditor() { $('#chatEditor').classList.remove('hidden'); $('#chatInput').focus(); }
 function hideChatEditor() { S.editMsgId = null; $('#chatInput').innerHTML = ''; $('#chatEditor').classList.add('hidden'); }
 $('#btnChatNew').onclick = () => { if (S.editMsgId) finishMsgEdit(false); $('#chatInput').innerHTML = ''; showChatEditor(); };
-function hideLinkForm() { $('#linkForm').classList.add('hidden'); $('#lUrl').value = ''; $('#lTitle').value = ''; }
+function hideLinkForm() { $('#linkForm').classList.add('hidden'); $('#lUrl').value = ''; $('#lTitle').value = ''; $('#lPip').value = ''; $('#lPipRow').classList.add('hidden'); }
 $('#btnLinkNew').onclick = () => { const f = $('#linkForm'); if (f.classList.contains('hidden')) { f.classList.remove('hidden'); $('#lUrl').focus(); } else hideLinkForm(); };
 function sendChat() {
   const html = clean($('#chatInput').innerHTML.trim());
@@ -922,7 +929,7 @@ function renderTime() {
   const dt = new Date(d + 'T12:00');
   $('#tDate').textContent = `${WDL[dt.getDay()]}, ${fmtDate(d)}`;
   $('#tToday').classList.toggle('hidden', d === todayIso());
-  if (document.activeElement !== $('#tWork')) $('#tWork').value = work != null ? fmtHM(work) : '';
+  if (document.activeElement !== $('#tWork')) $('#tWork').value = work != null ? String(Math.round(work / 60 * 100) / 100) : '';
   const items = day.items || [];
   const sum = items.reduce((a, i) => a + (i.min || 0), 0);
   const base = work || TARGET;
