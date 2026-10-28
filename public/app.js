@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=14';
+import { CONFIG } from './config.js?v=15';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -180,6 +180,11 @@ function personHits(t) {
     return `👤 <b>${esc(p.name)}</b>${p.role ? ' (' + esc(p.role) + ')' : ''}${ws.length && t.status === 'Frozen' ? ' · ⏸ wartet: ' + esc(ws.map(w => w.reason).join(', ')) : ''}`;
   }).join(' &nbsp; ')}</div>`;
 }
+const KINDS = ['Projekt', 'Task', 'Pre-PIP', 'PIP'];
+const kindOf = t => t.kind || (t.type === 'P' ? 'Projekt' : 'Task');
+const hasNr = k => k === 'PIP' || k === 'Pre-PIP';
+const kindLabel = t => { const k = kindOf(t); return hasNr(k) && t.kindNr ? `${k} ${t.kindNr}` : k; };
+function kindSearch(t) { const k = kindOf(t), n = t.kindNr || ''; return [k, kindLabel(t), n, hasNr(k) && n ? (k === 'PIP' ? 'PIP-' : 'PREPIP-') + n : '', hasNr(k) && n ? k.replace('-', '') + n : '']; }
 function initials(n) { return (n || '?').split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase(); }
 
 /* ================= Sidebar ================= */
@@ -213,7 +218,7 @@ function visibleTasks() {
       ...(t.urls || []).flatMap(u => [u.title, u.url]),
       ...(t.chats || []).map(c => stripHtml(c.html)),
       ...(t.persons || []).flatMap(p => [p.name, p.role]),
-      ...waitsOf(t).map(w => w.reason)].some(v => (v || '').toLowerCase().includes(q)))
+      ...waitsOf(t).map(w => w.reason), ...kindSearch(t)].some(v => (v || '').toLowerCase().includes(q)))
     .sort((a, b) =>
       (!a.deadline - !b.deadline) ||
       (a.deadline || '').localeCompare(b.deadline || '') ||
@@ -237,7 +242,7 @@ function renderList() {
     <article class="task" data-id="${t.id}" style="--tc:${STATUS_COLOR[t.status] || '#fff'};--tp:${STATUS_TINT[t.status] ?? 0}%">
       <div class="bar" style="--pc:${p.c}" data-act="prio" title="Prio: ${p.n}"></div>
       <div class="main">
-        <div class="ttl ${t.title ? '' : 'empty-ttl'}">${t.recurNew ? '<span class="recnew" title="Neu aus Recurring">!</span>' : ''}${t.recId ? '<span class="recicon" title="Recurring">↻</span>' : ''}${esc(t.title || 'Ohne Titel')}</div>
+        <div class="ttl ${t.title ? '' : 'empty-ttl'}">${t.recurNew ? '<span class="recnew" title="Neu aus Recurring">!</span>' : ''}${t.recId ? '<span class="recicon" title="Recurring">↻</span>' : ''}<span class="kind k-${kindOf(t).replace('-', '').toLowerCase()}">${esc(kindLabel(t))}</span>${esc(t.title || 'Ohne Titel')}</div>
         ${personHits(t)}${t.status === 'Frozen' && waitsOf(t).length ? `<div class="desc waitline">⏸ ${esc(waitText(t))}</div>`
           : t.description ? `<div class="desc">${esc(t.description)}</div>` : ''}
       </div>
@@ -300,7 +305,7 @@ function prioPop(a, id) {
 /* ================= Neuer Task ================= */
 function newTask() {
   const id = store.add('tasks', {
-    title: '', description: '', status: 'Queued', prio: 2, progress: 0, deadline: '',
+    title: '', description: '', status: 'Queued', kind: 'Task', kindNr: '', prio: 2, progress: 0, deadline: '',
     persons: [], urls: [], chats: [],
   });
   if (!S.filter.has('Queued') && S.filter.size) { S.filter.add('Queued'); savePref('filter', [...S.filter]); renderSidebar(); }
@@ -343,6 +348,8 @@ function renderDrawer(full = false) {
   setVal($('#fTitle'), t.title);
   setVal($('#fDesc'), t.description);
   setVal($('#fStatus'), t.status);
+  setVal($('#fKind'), kindOf(t)); setVal($('#fKindNr'), t.kindNr || '');
+  $('#fKindNr').classList.toggle('hidden', !hasNr(kindOf(t)));
   setVal($('#fDeadline'), t.deadline);
   $('#btnClearDeadline').classList.toggle('hidden', !t.deadline);
   $$('#fPrio button').forEach(b => b.classList.toggle('on', +b.dataset.v === +t.prio));
@@ -359,6 +366,9 @@ $('#fTitle').addEventListener('input', e => saveTitle(e.target.value.trim()));
 $('#fDesc').addEventListener('input', e => saveDesc(e.target.value));
 $('#fTitle').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#fDesc').focus(); } });
 $('#fStatus').onchange = e => upd(S.openId, { status: e.target.value });
+$('#fKind').onchange = e => { const k = e.target.value; upd(S.openId, { kind: k }); $('#fKindNr').classList.toggle('hidden', !hasNr(k)); if (hasNr(k)) $('#fKindNr').focus(); };
+const saveKindNr = debounce(v => upd(S.openId, { kindNr: v }), 400);
+$('#fKindNr').addEventListener('input', e => saveKindNr(e.target.value.replace(/[^\d]/g, '')));
 $('#fDeadline').onchange = e => upd(S.openId, { deadline: e.target.value });
 $('#btnClearDeadline').onclick = () => upd(S.openId, { deadline: '' });
 $('#fPrio').onclick = e => { const b = e.target.closest('button'); if (b) upd(S.openId, { prio: +b.dataset.v }); };
