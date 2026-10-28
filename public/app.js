@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=25';
+import { CONFIG } from './config.js?v=26';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -1087,16 +1087,20 @@ function renderEval() {
     e.path.forEach((k, idx) => {
       if (!n.ch.has(k)) n.ch.set(k, { min: 0, ch: new Map(), com: [] });
       n = n.ch.get(k); n.min += e.min;
-      if (idx === e.path.length - 1 && e.comment) n.com.push(fmtDate(e.date) + ': ' + e.comment);
+      if (idx === e.path.length - 1 && e.comment) n.com.push({ d: e.date, t: e.comment, task: k });
     });
   });
   const sortM = m => [...m.entries()].sort((x, y) => isAS(x[0]) - isAS(y[0]) || y[1].min - x[1].min);
   const bar = m => `<span class="evbar"><i style="width:${total ? m / total * 100 : 0}%"></i></span><b>${fmtH(m)}</b><span class="muted">${total ? Math.round(m / total * 100) : 0}%</span>`;
+  S.evCom = [];
+  const allCom = n => [...n.com, ...[...n.ch.values()].flatMap(allCom)];
   const node = (k, n, key, lvl) => {
-    const lab = `<span class="evn ${kindCls(k)}">${esc(k)}${n.com.length ? ' <span class="muted">💬' + n.com.length + '</span>' : ''}</span>${bar(n.min)}`;
+    const cs = allCom(n).sort((a, b) => b.d.localeCompare(a.d));
+    let ci = ''; if (cs.length) { S.evCom.push({ title: k, leaf: !n.ch.size, list: cs }); ci = ` <span class="evc" data-ci="${S.evCom.length - 1}" title="Kommentare">💬${cs.length}</span>`; }
+    const lab = `<span class="evn ${kindCls(k)}">${esc(k)}${ci}</span>${bar(n.min)}`;
     return n.ch.size
       ? `<details class="ev-n lv${lvl}" ${S.evOpen.has(key) ? 'open' : ''} data-k="${esc(key)}"><summary>${lab}</summary>${sortM(n.ch).map(([k2, n2]) => node(k2, n2, key + '|' + k2, lvl + 1)).join('')}</details>`
-      : `<div class="ev-n leaf lv${lvl}" title="${esc(n.com.join('\n'))}">${lab}</div>`;
+      : `<div class="ev-n leaf lv${lvl}">${lab}</div>`;
   };
   $('#evTree').innerHTML = total ? sortM(root.ch).map(([k, n]) => node(k, n, k, 1)).join('') : '<div class="muted" style="padding:20px">Keine Zeiten im gewählten Zeitraum.</div>';
   // Zeitverlauf
@@ -1115,6 +1119,22 @@ function renderEval() {
     <tbody>${sr.map(([k, r]) => `<tr class="${isAS(k) ? 'admin' : ''}"><td>${esc(k)}</td>${cols.map(([pk]) => `<td>${r.c[pk] ? fmtHM(r.c[pk]) : ''}</td>`).join('')}<td><b>${fmtHM(r.tot)}</b></td></tr>`).join('')}</tbody>
     <tfoot><tr><td>Total</td>${cols.map(([pk]) => `<td>${fmtHM(colTot[pk])}</td>`).join('')}<td>${fmtHM(total)}</td></tr></tfoot></table>` : '';
 }
+// Kommentar-Popup (Hover, Klick fixiert)
+function showComPop(el, pin) {
+  const c = S.evCom[+el.dataset.ci]; if (!c) return;
+  const pop = $('#comPop'); pop.dataset.pin = pin ? '1' : '';
+  pop.innerHTML = `<div class="cp-h">${esc(c.title)} <span class="muted">· ${c.list.length} Kommentar${c.list.length > 1 ? 'e' : ''}</span>${pin ? '<button class="x cp-x">×</button>' : ''}</div>` +
+    c.list.map(x => `<div class="cp-i"><span class="cp-d">${fmtDate(x.d)}</span>${c.leaf ? '' : `<span class="cp-t">${esc(x.task)}</span>`}<div class="cp-c">${esc(x.t)}</div></div>`).join('');
+  pop.classList.remove('hidden');
+  const r = el.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  pop.style.left = Math.max(10, Math.min(r.left, innerWidth - w - 10)) + 'px';
+  pop.style.top = (r.bottom + h + 10 > innerHeight ? Math.max(10, r.top - h - 6) : r.bottom + 6) + 'px';
+}
+const hideComPop = () => { $('#comPop').classList.add('hidden'); $('#comPop').dataset.pin = ''; };
+$('#evTree').addEventListener('mouseover', e => { const el = e.target.closest('.evc'); if (el && !$('#comPop').dataset.pin) showComPop(el, false); });
+$('#evTree').addEventListener('mouseout', e => { const el = e.target.closest('.evc'); if (el && !$('#comPop').dataset.pin && !e.relatedTarget?.closest?.('#comPop')) hideComPop(); });
+$('#evTree').addEventListener('click', e => { const el = e.target.closest('.evc'); if (!el) return; e.preventDefault(); e.stopPropagation(); showComPop(el, true); }, true);
+document.addEventListener('mousedown', e => { if (!$('#comPop').classList.contains('hidden') && (e.target.closest('.cp-x') || (!e.target.closest('#comPop') && !e.target.closest('.evc')))) hideComPop(); });
 $('#evTree').addEventListener('toggle', e => { const d = e.target.closest('details'); if (!d) return; d.open ? S.evOpen.add(d.dataset.k) : S.evOpen.delete(d.dataset.k); }, true);
 function evPreset(p) {
   const t = new Date(); let a, b = isoOf(t);
@@ -1128,7 +1148,7 @@ function evPreset(p) {
 $('#evPresets').onclick = e => { const b = e.target.closest('[data-p]'); if (b) evPreset(b.dataset.p); };
 ['#evFrom', '#evTo', '#evGran', '#evLevel'].forEach(s => $(s).addEventListener('change', () => { if (s === '#evFrom' || s === '#evTo') $$('#evPresets button').forEach(x => x.classList.remove('on')); renderEval(); }));
 $('#btnEval').onclick = () => { $('#evalModal').classList.remove('hidden'); $('#drawerBg').classList.remove('hidden'); if (!$('#evFrom').value) evPreset('month'); else renderEval(); };
-const closeEval = () => { $('#evalModal').classList.add('hidden'); if (!S.openId && $('#recModal').classList.contains('hidden')) $('#drawerBg').classList.add('hidden'); };
+const closeEval = () => { hideComPop(); $('#evalModal').classList.add('hidden'); if (!S.openId && $('#recModal').classList.contains('hidden')) $('#drawerBg').classList.add('hidden'); };
 $('#btnEvalClose').onclick = closeEval;
 $('#btnEvCsv').onclick = () => {
   const es = evalEntries($('#evFrom').value, $('#evTo').value);

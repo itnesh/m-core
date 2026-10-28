@@ -570,3 +570,15 @@ input.req{border-color:#f3b78f!important}
 .col-links .chip{font-size:11.5px;padding:0 8px;height:24px}
 .col-links .row2{flex-wrap:wrap}
 .col-links .row2 select{width:100%!important}
+
+/* v26 Kommentar-Popup Auswertung */
+.evc{display:inline-block;margin-left:6px;padding:0 6px;border-radius:999px;background:var(--orange-soft);color:var(--orange);font-size:11.5px;font-weight:700;cursor:pointer;line-height:18px}
+.evc:hover{background:var(--orange);color:#fff}
+.compop{position:fixed;z-index:96;width:min(440px,92vw);max-height:60vh;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.18);padding:10px 12px;animation:fade .1s}
+.cp-h{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;padding-bottom:8px;border-bottom:1px solid var(--line2);margin-bottom:6px}
+.cp-h .cp-x{margin-left:auto}
+.cp-i{padding:6px 0;border-bottom:1px solid var(--line2);font-size:13px}
+.cp-i:last-child{border-bottom:0}
+.cp-d{font-size:11.5px;color:var(--muted);font-weight:600;margin-right:8px}
+.cp-t{font-size:11.5px;color:var(--navy);font-weight:600}
+.cp-c{margin-top:2px;white-space:pre-wrap;line-height:1.4}
