@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=20';
+import { CONFIG } from './config.js?v=21';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -901,7 +901,7 @@ function parseAmt(s, work) {
   return Math.round(parseFloat(s) * 60) || 0;
 }
 const dayOf = d => S.days[d] || { items: [], touched: [], work: null };
-function saveDay(d, patch) { const cur = dayOf(d); const nd = { items: cur.items || [], touched: cur.touched || [], work: cur.work ?? null, admin: cur.admin || null, support: cur.support || null, ...patch, updatedAt: Date.now() }; S.days[d] = nd; store.put('timedays', d, nd); }
+function saveDay(d, patch) { const cur = dayOf(d); const { id: _id, ...rest } = cur; const nd = { items: [], touched: [], work: null, ...rest, ...patch, updatedAt: Date.now() }; S.days[d] = nd; store.put('timedays', d, nd); }
 function touchTask(id) { const d = todayIso(), cur = dayOf(d); if ((cur.touched || []).includes(id)) return; saveDay(d, { touched: [...(cur.touched || []), id] }); }
 function addDays(iso, n) { const d = new Date(iso + 'T12:00'); d.setDate(d.getDate() + n); return isoOf(d); }
 const WDL = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
@@ -918,17 +918,19 @@ function pathLabel(t) { const p = pipOf(t), q = prepipOf(t); return [p && 'PIP '
 const TCOL = ['#FF6600', '#014f80', '#7b52c9', '#5fa832', '#c0392b', '#d39a2b', '#00897b', '#8e6cc4', '#5c6bc0', '#e57373'];
 
 // Admin/Support: fest pro Tag, Differenz zur Arbeitszeit je 50/50 verteilt
-function fixedOf(day) {
+// Admin/Support: Rest bis Arbeitszeit, Aufteilung per Slider (Anteil Admin in %)
+function shareOf(day) {
+  if (day.asShare != null) return day.asShare;
   const a = day.admin?.min || 0, s = day.support?.min || 0;
+  return a + s ? Math.round(a / (a + s) * 100) : 50;
+}
+function fixedOf(day) {
   const tasks = (day.items || []).reduce((x, i) => x + (i.min || 0), 0);
-  if (day.work == null) return { a, s, effA: a, effS: s, diff: 0, tasks };
-  const avail = day.work - tasks, diff = avail - a - s;
-  if (avail <= 0) return { a, s, effA: 0, effS: 0, diff, tasks };
-  let effA = a + diff / 2, effS = s + diff / 2;
-  if (effA < 0) { effA = 0; effS = avail; }
-  if (effS < 0) { effS = 0; effA = avail; }
-  effA = Math.round(effA);
-  return { a, s, effA, effS: avail - effA, diff, tasks };
+  const sh = shareOf(day);
+  if (day.work == null) return { effA: 0, effS: 0, rest: 0, tasks, share: sh };
+  const rest = Math.max(0, day.work - tasks);
+  const effA = Math.round(rest * sh / 100);
+  return { effA, effS: rest - effA, rest, tasks, share: sh, over: Math.max(0, tasks - day.work) };
 }
 function renderTime() {
   const d = S.tday, day = dayOf(d), work = day.work;
@@ -944,13 +946,14 @@ function renderTime() {
   $('#tBar').innerHTML = items.map((i, k) => `<i style="width:${(i.min || 0) / den * 100}%;background:${TCOL[k % TCOL.length]}" title="${esc(task(i.taskId)?.title || '')}"></i>`).join('')
     + `<i class="rest" style="width:${fx.effA / den * 100}%" title="Admin"></i><i class="rest2" style="width:${fx.effS / den * 100}%" title="Support"></i>`;
   if (!S.tfEdit && !$('#tFixed').contains(document.activeElement)) {
-    $('#tFixed').innerHTML = [['admin', 'Admin', fx.effA, fx.a], ['support', 'Support', fx.effS, fx.s]].map(([k, n, eff, own]) => `
-      <div class="titem fixed" data-k="${k}">
-        <div class="ti-top"><span class="ti-title nolink">${n}</span><span class="ti-eff" title="inkl. Anteil Differenz zur Arbeitszeit">= ${fmtHM(eff)}${work ? ' · ' + Math.round(eff / work * 100) + '%' : ''}</span></div>
-        <div class="ti-row"><input class="ti-amt tf-amt" value="${own ? fmtHM(own) : ''}" placeholder="0:00" title="Selbst erfasst. Differenz zur Arbeitszeit wird 50/50 auf Admin und Support verteilt.">
-          <span class="ti-pct">${fx.diff && work != null ? (fx.diff > 0 ? '+' : '−') + fmtHM(Math.abs(fx.diff) / 2) : ''}</span>
-          <input class="ti-com tf-com" value="${esc(day[k]?.comment || '')}" placeholder="Kommentar"></div>
-      </div>`).join('');
+    $('#tFixed').innerHTML = `
+      <div class="titem fixed">
+        <div class="ti-top"><span class="ti-title nolink">Admin / Support</span><span class="ti-eff">${work == null ? 'Arbeitszeit fehlt' : '= ' + fmtHM(fx.rest) + ' · ' + Math.round(fx.rest / work * 100) + '%'}</span></div>
+        <div class="as-row"><span class="as-l">Admin <b>${fx.share}%</b><br><small>${fmtHM(fx.effA)}</small></span>
+          <input type="range" id="asShare" min="0" max="100" step="5" value="${fx.share}" style="--p:${fx.share}%">
+          <span class="as-r">Support <b>${100 - fx.share}%</b><br><small>${fmtHM(fx.effS)}</small></span></div>
+        <input class="ti-com tf-com as-com" value="${esc(day.asComment || '')}" placeholder="Kommentar Admin / Support">
+      </div>`;
   }
   $('#timeTabSum').textContent = sum ? fmtHM(sum) : '';
   if (!S.tEdit && !$('#tItems').contains(document.activeElement)) {
@@ -963,12 +966,10 @@ function renderTime() {
           <input class="ti-com" value="${esc(i.comment || '')}" placeholder="Kommentar"></div>
       </div>`; }).join('') : '<div class="muted small" style="padding:6px 2px">Noch nichts erfasst. Vorschlag unten anklicken oder Task suchen.</div>';
   }
-  const booked0 = sum + fx.a + fx.s;
   $('#tRest').innerHTML = work == null
-    ? `<span class="muted">Erfasst ${fmtHM(booked0)} · Arbeitszeit oben eintragen</span>`
-    : fx.effA + fx.effS + sum > work + 1
-      ? `<span class="over">Überbucht (Tasks > Arbeitszeit)</span><b class="over">${fmtHM(sum - work)}</b>`
-      : `<span>Erfasst ${fmtHM(booked0)} von ${Math.round(work / 60 * 100) / 100} h</span><b class="${fx.diff < 0 ? 'neg' : ''}">${fx.diff === 0 ? 'aufgeht ✓' : (fx.diff > 0 ? '+' : '−') + fmtHM(Math.abs(fx.diff))}</b><span class="muted small">${fx.diff ? '→ je ½ Admin/Support' : ''}</span>`;
+    ? `<span class="muted">Erfasst ${fmtHM(sum)} · Arbeitszeit oben eintragen</span>`
+    : fx.over ? `<span class="over">Überbucht (Tasks > Arbeitszeit)</span><b class="over">${fmtHM(fx.over)}</b>`
+    : `<span>Tasks ${fmtHM(sum)} + Admin/Support ${fmtHM(fx.rest)}</span><b>= ${Math.round(work / 60 * 100) / 100} h</b>`;
   // Vorschläge
   const booked = new Set(items.map(i => i.taskId));
   const touched = (day.touched || []).filter(id => task(id) && !booked.has(id));
@@ -994,14 +995,20 @@ $('#tItems').addEventListener('click', e => {
   const del = e.target.closest('[data-tdel]'); if (del) { saveDay(S.tday, { items: (dayOf(S.tday).items || []).filter(i => i.id !== del.dataset.tdel) }); renderTime(); return; }
   const op = e.target.closest('[data-open]'); if (op && task(op.dataset.open)) openTask(op.dataset.open);
 });
-function saveFixed() {
-  const rd = k => { const r = $(`#tFixed [data-k="${k}"]`); return { min: parseAmt(r.querySelector('.tf-amt').value, dayOf(S.tday).work), comment: r.querySelector('.tf-com').value.trim() }; };
-  saveDay(S.tday, { admin: rd('admin'), support: rd('support') });
-}
-$('#tFixed').addEventListener('focusin', () => { S.tfEdit = true; });
-$('#tFixed').addEventListener('change', () => { saveFixed(); renderTime(); });
-$('#tFixed').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('input')) { e.preventDefault(); e.target.blur(); } });
-$('#tFixed').addEventListener('focusout', () => setTimeout(() => { if (!$('#tFixed').contains(document.activeElement)) { S.tfEdit = false; saveFixed(); renderTime(); } }, 50));
+$('#tFixed').addEventListener('input', e => {
+  if (e.target.id !== 'asShare') return;
+  const v = +e.target.value, fx = fixedOf({ ...dayOf(S.tday), asShare: v });
+  e.target.style.setProperty('--p', v + '%');
+  const l = $('#tFixed .as-l'), r = $('#tFixed .as-r');
+  l.innerHTML = `Admin <b>${v}%</b><br><small>${fmtHM(fx.effA)}</small>`; r.innerHTML = `Support <b>${100 - v}%</b><br><small>${fmtHM(fx.effS)}</small>`;
+});
+$('#tFixed').addEventListener('change', e => {
+  if (e.target.id === 'asShare') { saveDay(S.tday, { asShare: +e.target.value }); S.tfEdit = false; e.target.blur(); renderTime(); }
+  if (e.target.matches('.as-com')) saveDay(S.tday, { asComment: e.target.value.trim() });
+});
+$('#tFixed').addEventListener('focusin', e => { if (e.target.matches('.as-com')) S.tfEdit = true; });
+$('#tFixed').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('.as-com')) { e.preventDefault(); e.target.blur(); } });
+$('#tFixed').addEventListener('focusout', () => setTimeout(() => { if (!$('#tFixed').contains(document.activeElement)) { S.tfEdit = false; renderTime(); } }, 50));
 $('#tSugg').onclick = e => { const b = e.target.closest('[data-sadd]'); if (b) addTimeItem(b.dataset.sadd); };
 $('#tAdd').addEventListener('change', e => { const t = S.tasks.find(x => x.title === e.target.value); if (t) { addTimeItem(t.id); e.target.value = ''; } });
 $('#tAdd').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const q = e.target.value.toLowerCase(); const t = S.tasks.find(x => (x.title || '').toLowerCase() === q) || S.tasks.find(x => (x.title || '').toLowerCase().includes(q)); if (t && q) { addTimeItem(t.id); e.target.value = ''; } } });
@@ -1038,8 +1045,8 @@ function evalEntries(from, to) {
       out.push({ date: d, min: i.min, comment: i.comment || '', taskId: i.taskId, task: name, pip: pip ? 'PIP ' + pip : '', pre: pre ? 'PrePIP ' + pre : '', path });
     });
     const fx = fixedOf(day);
-    if (fx.effA) out.push({ date: d, min: fx.effA, admin: true, comment: day.admin?.comment || '', task: 'Admin', pip: '', pre: '', path: ['Admin'] });
-    if (fx.effS) out.push({ date: d, min: fx.effS, admin: true, comment: day.support?.comment || '', task: 'Support', pip: '', pre: '', path: ['Support'] });
+    if (fx.effA) out.push({ date: d, min: fx.effA, admin: true, comment: day.asComment || '', task: 'Admin', pip: '', pre: '', path: ['Admin'] });
+    if (fx.effS) out.push({ date: d, min: fx.effS, admin: true, comment: '', task: 'Support', pip: '', pre: '', path: ['Support'] });
   });
   return out;
 }

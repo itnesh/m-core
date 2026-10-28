@@ -545,3 +545,13 @@ input.req{border-color:#f3b78f!important}
 .ti-eff{font-size:12px;font-weight:700;color:var(--navy);white-space:nowrap}
 .tbar i.rest2{background:#dde1e6}
 .trest b.neg{color:var(--amber)}
+
+/* v21 Admin/Support Slider */
+.as-row{display:flex;align-items:center;gap:10px;margin:8px 0 6px}
+.as-l,.as-r{width:66px;font-size:12px;color:var(--muted);line-height:1.25}
+.as-r{text-align:right}
+.as-l b,.as-r b{color:var(--text)}
+#asShare{flex:1;-webkit-appearance:none;appearance:none;height:8px;border-radius:999px;background:linear-gradient(90deg,#8a94a3 var(--p),#d3d8de var(--p));outline:0;cursor:pointer}
+#asShare::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid var(--orange);box-shadow:0 1px 4px rgba(0,0,0,.2)}
+#asShare::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--orange)}
+.as-com{width:100%}
