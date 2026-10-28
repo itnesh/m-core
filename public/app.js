@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=23';
+import { CONFIG } from './config.js?v=24';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -1007,14 +1007,14 @@ function addTimeItem(taskId) {
 }
 function readTimeItems() {
   const day = dayOf(S.tday), work = day.work;
-  return $$('#tItems .titem').map(r => { const old = (day.items || []).find(i => i.id === r.dataset.id) || {}; return { ...old, id: r.dataset.id, min: parseAmt(r.querySelector('.ti-amt').value, work), comment: r.querySelector('.ti-com').value.trim() }; });
+  return $$('#tItems .titem').filter(r => (day.items || []).some(i => i.id === r.dataset.id)).map(r => { const old = (day.items || []).find(i => i.id === r.dataset.id); return { ...old, id: r.dataset.id, min: parseAmt(r.querySelector('.ti-amt').value, work), comment: r.querySelector('.ti-com').value.trim() }; });
 }
 $('#tItems').addEventListener('focusin', () => { S.tEdit = true; });
 $('#tItems').addEventListener('change', e => { if (e.target.matches('.ti-amt,.ti-com')) { saveDay(S.tday, { items: readTimeItems() }); renderTime(); } });
 $('#tItems').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('input')) { e.preventDefault(); e.target.blur(); } });
 $('#tItems').addEventListener('focusout', () => setTimeout(() => { if (!$('#tItems').contains(document.activeElement)) { S.tEdit = false; saveDay(S.tday, { items: readTimeItems() }); renderTime(); } }, 50));
 $('#tItems').addEventListener('click', e => {
-  const del = e.target.closest('[data-tdel]'); if (del) { saveDay(S.tday, { items: (dayOf(S.tday).items || []).filter(i => i.id !== del.dataset.tdel) }); renderTime(); return; }
+  const del = e.target.closest('[data-tdel]'); if (del) { del.closest('.titem')?.remove(); S.tEdit = false; saveDay(S.tday, { items: (dayOf(S.tday).items || []).filter(i => i.id !== del.dataset.tdel) }); renderTime(); return; }
   const op = e.target.closest('[data-open]'); if (op && task(op.dataset.open)) openTask(op.dataset.open);
 });
 $('#tFixed').addEventListener('input', e => {
