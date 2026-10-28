@@ -420,3 +420,8 @@ img.att.missing{min-height:30px;opacity:.5}
 .attw .attdel:hover{background:var(--red)}
 .rte img.att{cursor:pointer}
 .rte img.att:hover{outline:2px solid var(--red)}
+
+/* v16 Jira PrePIP / PIP */
+.qlink .qt{position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);font-style:normal;font-size:8px;font-weight:800;line-height:10px;padding:0 3px;border-radius:3px;color:#fff;letter-spacing:.3px}
+.qlink .qt.pre{background:#d39a2b}
+.qlink .qt.pip{background:#0052cc}

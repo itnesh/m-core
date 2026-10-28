@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=14';
+import { CONFIG } from './config.js?v=16';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -16,13 +16,16 @@ const STATUS_TINT = { 'Ideas': 7, 'Queued': 7, 'In Motion': 0, 'Delivered': 8, '
 const STATUS_ORDER = { 'In Motion': 1, 'Queued': 2, 'Frozen': 3, 'Ideas': 4, 'Delivered': 5, 'Dropped': 6 };
 const DEFAULT_FILTER = ['Queued', 'In Motion', 'Frozen'];
 const PRIO = { 1: { n: 'High', c: '#B76E79' }, 2: { n: 'Medium', c: '#C7A76C' }, 3: { n: 'Low', c: '#7E9CB2' } };
-const LINK_TYPES = ['Jira', 'Octane', 'Onenote', 'Sharepoint', 'SNOW', 'Teams', 'Wiki', 'Others'];
+const LINK_TYPES = ['Jira PrePIP', 'Jira PIP', 'Octane', 'Onenote', 'Sharepoint', 'SNOW', 'Teams', 'Wiki', 'Others'];
 const LINK_DETECT = [
-  [/atlassian|jira/i, 'Jira'], [/octane|almoctane|microfocus/i, 'Octane'], [/onenote|1drv\.ms\/o|onenote:/i, 'Onenote'],
+  [/PREPIP/i, 'Jira PrePIP'], [/[\/=]PIP-\d/i, 'Jira PIP'],
+  [/atlassian|jira/i, 'Jira PrePIP'], [/octane|almoctane|microfocus/i, 'Octane'], [/onenote|1drv\.ms\/o|onenote:/i, 'Onenote'],
   [/teams\.microsoft|teams\.live/i, 'Teams'], [/service-?now|snow/i, 'SNOW'], [/confluence|wiki/i, 'Wiki'],
   [/sharepoint|onedrive|-my\.sharepoint/i, 'Sharepoint'],
 ];
-const ICON = t => `img/${(t || 'others').toLowerCase()}.png`;
+const ICON = t => `img/${/^jira/i.test(t || '') ? 'jira' : (t || 'others').toLowerCase()}.png`;
+const typeOf = u => { const t = u.type || 'Others'; if (t !== 'Jira') return t; return /PREPIP/i.test(u.url || '') ? 'Jira PrePIP' : /[\/=]PIP-\d/i.test(u.url || '') ? 'Jira PIP' : 'Jira PrePIP'; };
+const jiraTag = t => t === 'Jira PrePIP' ? '<i class="qt pre">PRE</i>' : t === 'Jira PIP' ? '<i class="qt pip">PIP</i>' : '';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -163,9 +166,9 @@ function waitText(t) {
   const ps = t.persons || [];
   return waitsOf(t).map(w => { const n = ps.find(p => p.id === w.personId)?.name; return [n, w.reason].filter(Boolean).join(': '); }).filter(Boolean).join(' · ') || 'wartet';
 }
-const ORDER_T = ['Teams', 'Jira', 'Octane', 'SNOW', 'Sharepoint', 'Onenote', 'Wiki', 'Others'];
+const ORDER_T = ['Teams', 'Jira PrePIP', 'Jira PIP', 'Octane', 'SNOW', 'Sharepoint', 'Onenote', 'Wiki', 'Others'];
 function linkGroups(urls) {
-  const m = new Map(); urls.forEach(u => { const k = u.type || 'Others'; (m.get(k) || m.set(k, []).get(k)).push(u); });
+  const m = new Map(); urls.forEach(u => { const k = typeOf(u); (m.get(k) || m.set(k, []).get(k)).push(u); });
   return [...m.entries()].sort((a, b) => ORDER_T.indexOf(a[0]) - ORDER_T.indexOf(b[0]));
 }
 const isTeams = u => /^https:\/\/teams\.microsoft\.com\//i.test(u || '');
@@ -210,7 +213,7 @@ function visibleTasks() {
   return S.tasks
     .filter(t => { const F = activeFilter(); return !F.size || F.has(t.status); })
     .filter(t => !q || [t.title, t.description,
-      ...(t.urls || []).flatMap(u => [u.title, u.url]),
+      ...(t.urls || []).flatMap(u => [u.title, u.url, typeOf(u)]),
       ...(t.chats || []).map(c => stripHtml(c.html)),
       ...(t.persons || []).flatMap(p => [p.name, p.role]),
       ...waitsOf(t).map(w => w.reason)].some(v => (v || '').toLowerCase().includes(q)))
@@ -242,8 +245,8 @@ function renderList() {
           : t.description ? `<div class="desc">${esc(t.description)}</div>` : ''}
       </div>
       <div class="qlinks">${linkGroups(urls).map(([ty, us]) => us.length === 1
-        ? `<a class="qlink" href="${esc(linkHref(us[0].url))}" ${linkTarget(us[0].url)} title="${esc(us[0].title || us[0].url)}"><img src="${ICON(ty)}" alt=""></a>`
-        : `<button class="qlink" data-act="links" data-ty="${esc(ty)}" title="${us.length} ${esc(ty)}-Links"><img src="${ICON(ty)}" alt=""><b class="qn">${us.length}</b></button>`).join('')}</div>
+        ? `<a class="qlink" href="${esc(linkHref(us[0].url))}" ${linkTarget(us[0].url)} title="${esc(ty + ': ' + (us[0].title || us[0].url))}"><img src="${ICON(ty)}" alt="">${jiraTag(ty)}</a>`
+        : `<button class="qlink" data-act="links" data-ty="${esc(ty)}" title="${us.length} ${esc(ty)}-Links"><img src="${ICON(ty)}" alt="">${jiraTag(ty)}<b class="qn">${us.length}</b></button>`).join('')}</div>
       <button class="status-pill" data-act="status" style="--c:${STATUS_COLOR[t.status]}"><span class="sic">${ST_ICON[t.status] || ''}</span>${esc(t.status)}</button>
       <div class="progress" data-act="prog"><i style="width:${+t.progress || 0}%"></i><span>${+t.progress || 0}%</span></div>
       <div class="deadline deadline-col ${dlClass(t.deadline)}">${fmtDate(t.deadline) || '<span style="opacity:.35">–</span>'}</div>
@@ -287,7 +290,7 @@ function progPop(a, id) {
     .onclick = e => { const b = e.target.closest('button'); if (b) { upd(id, { progress: +b.dataset.v }); hidePop(); } };
 }
 function linksPop(a, id) {
-  const ty = a.dataset.ty; const us = (task(id).urls || []).filter(u => (u.type || 'Others') === ty);
+  const ty = a.dataset.ty; const us = (task(id).urls || []).filter(u => (typeOf(u)) === ty);
   showPop(a, us.map(u => `<a class="pl" href="${esc(linkHref(u.url))}" ${linkTarget(u.url)}><img src="${ICON(ty)}" alt=""><span>${esc(u.title || hostOf(u.url))}</span></a>`).join(''), 'links')
     .onclick = e => { if (e.target.closest('a')) setTimeout(hidePop, 50); };
 }
@@ -436,23 +439,23 @@ $('#btnAddWait').onclick = () => {
 $('#lType').innerHTML = '<option value="auto">Typ: Auto</option>' + LINK_TYPES.map(x => `<option>${x}</option>`).join('');
 function renderLinks(t) {
   const all = t.urls || [];
-  const types = [...new Set(all.map(u => u.type || 'Others'))];
+  const types = [...new Set(all.map(u => typeOf(u)))];
   if (S.linkFilter && !types.includes(S.linkFilter)) S.linkFilter = null;
   $('#linkFilter').innerHTML = types.length > 1 ? `<button class="chip ${!S.linkFilter ? 'on' : ''}" data-lf="">Alle ${all.length}</button>` +
-    types.map(x => `<button class="chip ${S.linkFilter === x ? 'on' : ''}" data-lf="${x}"><img src="${ICON(x)}" alt="">${x} ${all.filter(u => (u.type || 'Others') === x).length}</button>`).join('') : '';
-  const urls = S.linkFilter ? all.filter(u => (u.type || 'Others') === S.linkFilter) : all;
+    types.map(x => `<button class="chip ${S.linkFilter === x ? 'on' : ''}" data-lf="${x}"><img src="${ICON(x)}" alt="">${x} ${all.filter(u => (typeOf(u)) === x).length}</button>`).join('') : '';
+  const urls = S.linkFilter ? all.filter(u => (typeOf(u)) === S.linkFilter) : all;
   $('#links').innerHTML = urls.length ? urls.map(u => u.id === S.editLinkId ? `
     <div class="lnk-edit" data-id="${u.id}">
       <input data-f="title" value="${esc(u.title)}" placeholder="Titel">
       <input data-f="url" value="${esc(u.url)}" placeholder="URL">
       <div class="row">
-        <select data-f="type">${LINK_TYPES.map(x => `<option ${x === u.type ? 'selected' : ''}>${x}</option>`).join('')}</select>
+        <select data-f="type">${LINK_TYPES.map(x => `<option ${x === typeOf(u) ? 'selected' : ''}>${x}</option>`).join('')}</select>
         <button class="btn small primary" data-la="save">OK</button>
         <button class="icon-btn danger" data-la="del" title="Löschen">${svg.del}</button>
       </div>
     </div>` : `
     <a class="lnk" href="${esc(linkHref(u.url))}" ${linkTarget(u.url)} data-id="${u.id}" title="${esc(u.url)}">
-      <img src="${ICON(u.type)}" alt="">
+      <img src="${ICON(typeOf(u))}" alt="">
       <div class="lt"><b>${esc(u.title || hostOf(u.url))}</b><span>${esc(u.url)}</span></div>
       <button class="ed" data-la="edit" title="Bearbeiten">${svg.edit}</button>
     </a>`).join('') : '<div class="muted small">Noch keine Links.</div>';
