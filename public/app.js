@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=22';
+import { CONFIG } from './config.js?v=23';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -343,6 +343,27 @@ function closeTask() {
 }
 $('#btnClose').onclick = closeTask;
 $('#drawerBg').onclick = () => { if (!$('#evalModal').classList.contains('hidden')) return closeEval(); if (!$('#recModal').classList.contains('hidden')) return closeRec(); closeTask(); };
+$('#btnDup').onclick = async () => {
+  const t = task(S.openId); if (!t) return;
+  const name = prompt('Name des neuen Tasks', (t.title || 'Ohne Titel') + ' (Kopie)');
+  if (name === null) return;
+  const { id: _old, createdAt, updatedAt, recId, recurNew, ...copy } = structuredClone(t);
+  // Screenshots mitkopieren, damit Löschen im Original die Kopie nicht betrifft
+  const map = {};
+  for (const c of copy.chats || []) for (const aid of attIds(c.html)) {
+    if (map[aid]) continue;
+    const [th, fu] = await Promise.all([store.get('attthumb', aid).catch(() => null), store.get('attfull', aid).catch(() => null)]);
+    if (!th) continue;
+    const nid = 'a' + uid(); map[aid] = nid;
+    const { id: _a, ...thd } = th; store.put('attthumb', nid, thd);
+    if (fu) { const { id: _b, ...fud } = fu; store.put('attfull', nid, fud); }
+    ATT.set(nid, th.data);
+  }
+  (copy.chats || []).forEach(c => { for (const [o, n] of Object.entries(map)) c.html = c.html.split(`data-att="${o}"`).join(`data-att="${n}"`); });
+  const id = store.add('tasks', { ...copy, title: name.trim() || copy.title });
+  closeTask(); setTimeout(() => openTask(id), 50);
+  toast('Task dupliziert');
+};
 $('#btnDelete').onclick = () => {
   const t = task(S.openId); if (!t) return;
   if (confirm(`Task "${t.title || 'Ohne Titel'}" löschen?`)) { store.remove('tasks', t.id); S.openId = null; closeTask(); toast('Task gelöscht'); }
