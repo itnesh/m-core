@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=16">
+<link rel="stylesheet" href="style.css?v=17">
 </head>
 <body>
 
@@ -61,6 +61,29 @@
       </div>
       <div id="taskList" class="task-list"></div>
     </main>
+
+    <aside class="time-panel">
+      <button id="timeTab" class="side-tab" title="Zeit einblenden"><span class="arr">‹</span><span class="vt">Zeit</span><span id="timeTabSum" class="pill soft"></span></button>
+      <div class="panel-head">
+        <h2>Zeit</h2>
+        <span class="grow"></span>
+        <button id="btnEval" class="btn small add" title="Auswertung">Auswertung</button>
+        <button id="btnTimeHide" class="icon-btn" title="Zeit ausblenden"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+      </div>
+      <div class="tdate">
+        <button id="tPrev" class="icon-btn" title="Vortag"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+        <div class="tdl"><b id="tDate"></b><button id="tToday" class="link-btn">Heute</button></div>
+        <button id="tNext" class="icon-btn" title="Nächster Tag"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+      </div>
+      <div class="twork"><label for="tWork">Arbeitszeit effektiv</label><input id="tWork" placeholder="z.B. 8:45" autocomplete="off"><span class="muted small">Ziel 9:00</span></div>
+      <div class="tbar" id="tBar"></div>
+      <div id="tItems" class="titems"></div>
+      <div id="tRest" class="trest"></div>
+      <input id="tAdd" list="taskList2" placeholder="+ Task suchen und hinzufügen …" autocomplete="off">
+      <datalist id="taskList2"></datalist>
+      <div class="lbl">Vorschläge</div>
+      <div id="tSugg" class="tsugg"></div>
+    </aside>
 
     <aside class="todo-panel">
       <button id="todoTab" class="todo-tab" title="2do einblenden"><span class="arr">‹</span><span class="vt">2do</span><span id="todoTabCount" class="pill soft"></span></button>
@@ -187,6 +210,27 @@
   </div>
 </section>
 
+<section id="evalModal" class="modal wide hidden">
+  <header class="drawer-head"><h2 style="flex:1">Auswertung Zeit</h2>
+    <button id="btnEvCsv" class="btn small">CSV</button>
+    <button id="btnEvalClose" class="icon-btn" title="Schliessen (Esc)"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </header>
+  <div class="ev-ctrl">
+    <div id="evPresets" class="chips"><button class="chip" data-p="week">Diese Woche</button><button class="chip" data-p="month">Dieser Monat</button><button class="chip" data-p="lmonth">Letzter Monat</button><button class="chip" data-p="quarter">Quartal</button><button class="chip" data-p="year">Jahr</button></div>
+    <label class="mini">Von <input type="date" id="evFrom"></label>
+    <label class="mini">Bis <input type="date" id="evTo"></label>
+    <span id="evSum" class="muted small"></span>
+  </div>
+  <div class="ev-body">
+    <div class="ev-col"><h3>PIP › PrePIP › Task</h3><div id="evTree" class="ev-tree"></div></div>
+    <div class="ev-col"><div class="ev-th"><h3>Zeitverlauf</h3>
+      <select id="evGran"><option value="day">Tag</option><option value="week" selected>Woche</option><option value="month">Monat</option><option value="quarter">Quartal</option></select>
+      <select id="evLevel"><option value="pip">PIP</option><option value="pre">PrePIP</option><option value="task">Task</option></select></div>
+      <div id="evTime" class="ev-time"></div></div>
+  </div>
+  <details class="ev-map"><summary>PrePIP › PIP Zuordnung</summary><p class="muted small">Wird automatisch übernommen, wenn ein Task beide Jira-Links hat. Sonst hier die PIP-Nummer eintragen.</p><div id="evMap"></div></details>
+</section>
+
 <section id="recModal" class="modal hidden">
   <header class="drawer-head"><h2 style="flex:1">↻ Recurring</h2>
     <button id="btnRecAdd" class="btn small add">+ Neu</button>
@@ -204,6 +248,6 @@
 <div id="pop" class="pop hidden"></div>
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="app.js?v=16"></script>
+<script type="module" src="app.js?v=17"></script>
 </body>
 </html>

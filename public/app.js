@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=16';
+import { CONFIG } from './config.js?v=17';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -25,6 +25,14 @@ const LINK_DETECT = [
 ];
 const ICON = t => `img/${/^jira/i.test(t || '') ? 'jira' : (t || 'others').toLowerCase()}.png`;
 const typeOf = u => { const t = u.type || 'Others'; if (t !== 'Jira') return t; return /PREPIP/i.test(u.url || '') ? 'Jira PrePIP' : /[\/=]PIP-\d/i.test(u.url || '') ? 'Jira PIP' : 'Jira PrePIP'; };
+const isJira = t => t === 'Jira PrePIP' || t === 'Jira PIP';
+function nrOf(u) {
+  const t = typeOf(u); if (!isJira(t)) return '';
+  const ti = String(u.title || '').trim(); if (/^\d+$/.test(ti)) return ti;
+  const m = String(u.url || '').match(t === 'Jira PIP' ? /[\/=]PIP-(\d+)/i : /PREPIP-(\d+)/i) || ti.match(/(\d{2,})/);
+  return m ? m[1] : '';
+}
+const dispTitle = u => { const t = typeOf(u); return isJira(t) ? `${t === 'Jira PIP' ? 'PIP' : 'PrePIP'} ${nrOf(u) || '?'}` : (u.title || hostOf(u.url)); };
 const jiraTag = t => t === 'Jira PrePIP' ? '<i class="qt pre">PRE</i>' : t === 'Jira PIP' ? '<i class="qt pip">PIP</i>' : '';
 
 const $ = s => document.querySelector(s);
@@ -130,6 +138,7 @@ const S = {
   linkFilter: null,
   sFilter: new Set(STATUSES),
   editTodoId: null,
+  days: {}, pmap: {}, tday: null, evOpen: new Set(),
   recs: [],
 };
 function loadPref(k, d) { try { const v = JSON.parse(localStorage.getItem('mcore:pref:' + k)); return v ?? d; } catch { return d; } }
@@ -245,7 +254,7 @@ function renderList() {
           : t.description ? `<div class="desc">${esc(t.description)}</div>` : ''}
       </div>
       <div class="qlinks">${linkGroups(urls).map(([ty, us]) => us.length === 1
-        ? `<a class="qlink" href="${esc(linkHref(us[0].url))}" ${linkTarget(us[0].url)} title="${esc(ty + ': ' + (us[0].title || us[0].url))}"><img src="${ICON(ty)}" alt="">${jiraTag(ty)}</a>`
+        ? `<a class="qlink" href="${esc(linkHref(us[0].url))}" ${linkTarget(us[0].url)} title="${esc(ty + ': ' + dispTitle(us[0]))}"><img src="${ICON(ty)}" alt="">${jiraTag(ty)}</a>`
         : `<button class="qlink" data-act="links" data-ty="${esc(ty)}" title="${us.length} ${esc(ty)}-Links"><img src="${ICON(ty)}" alt="">${jiraTag(ty)}<b class="qn">${us.length}</b></button>`).join('')}</div>
       <button class="status-pill" data-act="status" style="--c:${STATUS_COLOR[t.status]}"><span class="sic">${ST_ICON[t.status] || ''}</span>${esc(t.status)}</button>
       <div class="progress" data-act="prog"><i style="width:${+t.progress || 0}%"></i><span>${+t.progress || 0}%</span></div>
@@ -291,7 +300,7 @@ function progPop(a, id) {
 }
 function linksPop(a, id) {
   const ty = a.dataset.ty; const us = (task(id).urls || []).filter(u => (typeOf(u)) === ty);
-  showPop(a, us.map(u => `<a class="pl" href="${esc(linkHref(u.url))}" ${linkTarget(u.url)}><img src="${ICON(ty)}" alt=""><span>${esc(u.title || hostOf(u.url))}</span></a>`).join(''), 'links')
+  showPop(a, us.map(u => `<a class="pl" href="${esc(linkHref(u.url))}" ${linkTarget(u.url)}><img src="${ICON(ty)}" alt=""><span>${esc(dispTitle(u))}</span></a>`).join(''), 'links')
     .onclick = e => { if (e.target.closest('a')) setTimeout(hidePop, 50); };
 }
 function prioPop(a, id) {
@@ -316,6 +325,7 @@ $('#fStatus').innerHTML = STATUSES.map(s => `<option>${s}</option>`).join('');
 $('#fProg').innerHTML = Array.from({ length: 11 }, (_, i) => `<button data-v="${i * 10}">${i * 10}</button>`).join('');
 
 function openTask(id, focusTitle = false) {
+  touchTask(id);
   if (task(id)?.recurNew) upd(id, { recurNew: false });
   S.openId = id; S.editMsgId = null; S.editLinkId = null; S.linkFilter = null;
   $('#chatInput').innerHTML = '';
@@ -332,7 +342,7 @@ function closeTask() {
   $('#drawer').classList.add('hidden'); $('#drawerBg').classList.add('hidden');
 }
 $('#btnClose').onclick = closeTask;
-$('#drawerBg').onclick = () => { if (!$('#recModal').classList.contains('hidden')) return closeRec(); closeTask(); };
+$('#drawerBg').onclick = () => { if (!$('#evalModal').classList.contains('hidden')) return closeEval(); if (!$('#recModal').classList.contains('hidden')) return closeRec(); closeTask(); };
 $('#btnDelete').onclick = () => {
   const t = task(S.openId); if (!t) return;
   if (confirm(`Task "${t.title || 'Ohne Titel'}" löschen?`)) { store.remove('tasks', t.id); S.openId = null; closeTask(); toast('Task gelöscht'); }
@@ -446,7 +456,7 @@ function renderLinks(t) {
   const urls = S.linkFilter ? all.filter(u => (typeOf(u)) === S.linkFilter) : all;
   $('#links').innerHTML = urls.length ? urls.map(u => u.id === S.editLinkId ? `
     <div class="lnk-edit" data-id="${u.id}">
-      <input data-f="title" value="${esc(u.title)}" placeholder="Titel">
+      <input data-f="title" value="${esc(isJira(typeOf(u)) ? nrOf(u) : u.title)}" placeholder="${isJira(typeOf(u)) ? 'Nummer (Pflicht)' : 'Titel'}">
       <input data-f="url" value="${esc(u.url)}" placeholder="URL">
       <div class="row">
         <select data-f="type">${LINK_TYPES.map(x => `<option ${x === typeOf(u) ? 'selected' : ''}>${x}</option>`).join('')}</select>
@@ -456,7 +466,7 @@ function renderLinks(t) {
     </div>` : `
     <a class="lnk" href="${esc(linkHref(u.url))}" ${linkTarget(u.url)} data-id="${u.id}" title="${esc(u.url)}">
       <img src="${ICON(typeOf(u))}" alt="">
-      <div class="lt"><b>${esc(u.title || hostOf(u.url))}</b><span>${esc(u.url)}</span></div>
+      <div class="lt"><b>${esc(dispTitle(u))}</b><span>${esc(u.url)}</span></div>
       <button class="ed" data-la="edit" title="Bearbeiten">${svg.edit}</button>
     </a>`).join('') : '<div class="muted small">Noch keine Links.</div>';
 }
@@ -467,11 +477,35 @@ $('#btnLinkSave').onclick = () => {
   const url = normUrl($('#lUrl').value); if (!url) { $('#lUrl').focus(); return; }
   const t = task(S.openId);
   const ty = $('#lType').value === 'auto' ? detectType(url) : $('#lType').value;
-  upd(t.id, { urls: [...(t.urls || []), { id: uid(), url, title: $('#lTitle').value.trim() || hostOf(url), type: ty }] });
+  const title = $('#lTitle').value.trim();
+  if (isJira(ty) && !/^\d+$/.test(title)) { toast(`${ty}: Titel = Nummer (nur Ziffern, Pflicht)`); $('#lTitle').focus(); return; }
+  upd(t.id, { urls: [...(t.urls || []), { id: uid(), url, title: title || hostOf(url), type: ty }] });
   $('#lType').value = 'auto'; $('#lType').dataset.manual = ''; hideLinkForm();
 };
-$('#lUrl').addEventListener('input', e => { const u = e.target.value.trim(); if (u && $('#lType').dataset.manual !== '1') $('#lType').value = detectType(u) === 'Others' ? 'auto' : detectType(u); });
-$('#lType').addEventListener('change', e => e.target.dataset.manual = e.target.value === 'auto' ? '' : '1');
+function linkTitleHint() {
+  const u = $('#lUrl').value.trim(); const ty = $('#lType').value === 'auto' ? detectType(u) : $('#lType').value;
+  $('#lTitle').placeholder = isJira(ty) ? 'Nummer (Pflicht, nur Ziffern)' : 'Titel (optional)';
+  $('#lTitle').classList.toggle('req', isJira(ty));
+  if (isJira(ty) && !$('#lTitle').value) { const n = nrOf({ url: u, type: ty, title: '' }); if (n) $('#lTitle').value = n; }
+}
+$('#lUrl').addEventListener('input', e => { const u = e.target.value.trim(); if (u && $('#lType').dataset.manual !== '1') $('#lType').value = detectType(u) === 'Others' ? 'auto' : detectType(u); linkTitleHint(); });
+// Einfügen aus Jira/Browser: URL + Titel aus Zwischenablage ziehen
+$('#lUrl').addEventListener('paste', e => {
+  const cd = e.clipboardData; if (!cd) return;
+  const html = cd.getData('text/html') || '', txt = cd.getData('text/plain') || '';
+  let url = '', label = '';
+  const a = html && new DOMParser().parseFromString(html, 'text/html').querySelector('a[href^="http"]');
+  if (a) { url = a.href; label = a.textContent.trim(); }
+  if (!url) { const md = txt.match(/\[(.+)\]\((https?:\/\/[^\s)]+)\)/); if (md) { label = md[1]; url = md[2]; } }
+  if (!url) { const m = txt.match(/https?:\/\/[^\s<>"\]\)]+/); if (m) { url = m[0]; label = txt.replace(m[0], '').replace(/[\[\]()]/g, ' ').trim(); } }
+  if (!url) return;
+  e.preventDefault();
+  $('#lUrl').value = url; $('#lType').dataset.manual = '';
+  const ty = detectType(url); $('#lType').value = ty === 'Others' ? 'auto' : ty;
+  $('#lTitle').value = isJira(ty) ? (nrOf({ url, type: ty, title: '' }) || (label.match(/(?:PRE)?PIP-(\d+)/i) || [])[1] || '') : label.replace(/\s+-\s+Migros-Jira$/, '').slice(0, 120);
+  linkTitleHint();
+});
+$('#lType').addEventListener('change', e => { e.target.dataset.manual = e.target.value === 'auto' ? '' : '1'; linkTitleHint(); });
 $('#linkFilter').onclick = e => { const b = e.target.closest('[data-lf]'); if (!b) return; S.linkFilter = b.dataset.lf || null; renderLinks(task(S.openId)); };
 $('#links').addEventListener('click', e => {
   const a = e.target.closest('[data-la]'); if (!a) return;
@@ -481,6 +515,7 @@ $('#links').addEventListener('click', e => {
   if (a.dataset.la === 'del') { S.editLinkId = null; upd(t.id, { urls: t.urls.filter(u => u.id !== lid) }); return; }
   if (a.dataset.la === 'save') {
     const v = f => box.querySelector(`[data-f="${f}"]`).value.trim();
+    if (isJira(v('type')) && !/^\d+$/.test(v('title'))) { toast(`${v('type')}: Titel = Nummer (nur Ziffern, Pflicht)`); box.querySelector('[data-f=title]').focus(); return; }
     S.editLinkId = null;
     upd(t.id, { urls: t.urls.map(u => u.id === lid ? { ...u, title: v('title'), url: normUrl(v('url')), type: v('type') } : u) });
   }
@@ -619,8 +654,8 @@ document.addEventListener('keydown', e => {
   else if (a === $('#chatInput')) { e.stopPropagation(); e.preventDefault(); hideChatEditor(); renderChat(task(S.openId)); }
   else if (a === $('#lUrl') || a === $('#lTitle') || a === $('#lType')) { e.stopPropagation(); e.preventDefault(); hideLinkForm(); }
 }, true);
-function setTodoCollapsed(v) { document.body.classList.toggle('todo-collapsed', v); savePref('todoCollapsed', v); }
-setTodoCollapsed(!!loadPref('todoCollapsed', false));
+function setTodoCollapsed(v) { document.body.classList.toggle('todo-collapsed', v); savePref('todoCollapsed2', v); }
+setTodoCollapsed(!!loadPref('todoCollapsed2', true));
 $('#btnTodoHide').onclick = () => setTodoCollapsed(true);
 $('#todoTab').onclick = () => setTodoCollapsed(false);
 $('#todoInput').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); addTodo(); } });
@@ -852,6 +887,199 @@ $('#lbOpen').onclick = async () => {
 };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#lightbox').classList.contains('hidden')) { e.stopPropagation(); e.preventDefault(); closeLightbox(); } }, true);
 
+
+/* ================= Zeiterfassung ================= */
+const TARGET = 540; // 9h
+const fmtHM = m => { m = Math.round(m || 0); const s = m < 0 ? '-' : ''; m = Math.abs(m); return `${s}${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`; };
+const fmtH = m => (Math.round((m || 0) / 6) / 10).toFixed(1).replace('.', ',') + ' h';
+function parseAmt(s, work) {
+  s = String(s || '').trim().toLowerCase().replace(',', '.'); if (!s) return 0;
+  if (s.endsWith('%')) return Math.round((work || TARGET) * parseFloat(s) / 100) || 0;
+  if (s.includes(':')) { const [h, m] = s.split(':'); return (parseInt(h) || 0) * 60 + (parseInt(m) || 0); }
+  if (s.endsWith('m') || s.endsWith('min')) return Math.round(parseFloat(s)) || 0;
+  return Math.round(parseFloat(s) * 60) || 0;
+}
+const dayOf = d => S.days[d] || { items: [], touched: [], work: null };
+function saveDay(d, patch) { const cur = dayOf(d); const nd = { items: cur.items || [], touched: cur.touched || [], work: cur.work ?? null, ...patch, updatedAt: Date.now() }; S.days[d] = nd; store.put('timedays', d, nd); }
+function touchTask(id) { const d = todayIso(), cur = dayOf(d); if ((cur.touched || []).includes(id)) return; saveDay(d, { touched: [...(cur.touched || []), id] }); }
+function addDays(iso, n) { const d = new Date(iso + 'T12:00'); d.setDate(d.getDate() + n); return isoOf(d); }
+const WDL = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+// PIP / PrePIP Zuordnung
+const linkNrs = (t, ty) => (t.urls || []).filter(u => typeOf(u) === ty).map(nrOf).filter(Boolean);
+function prepipOf(t) { return linkNrs(t, 'Jira PrePIP')[0] || ''; }
+function pipOf(t) {
+  const p = linkNrs(t, 'Jira PIP')[0]; if (p) return p;
+  const pre = prepipOf(t); if (!pre) return '';
+  if (S.pmap[pre]?.pip) return S.pmap[pre].pip;
+  for (const x of S.tasks) if (linkNrs(x, 'Jira PrePIP').includes(pre) && linkNrs(x, 'Jira PIP')[0]) return linkNrs(x, 'Jira PIP')[0];
+  return '';
+}
+function pathLabel(t) { const p = pipOf(t), q = prepipOf(t); return [p && 'PIP ' + p, q && 'PrePIP ' + q].filter(Boolean).join(' › '); }
+const TCOL = ['#FF6600', '#014f80', '#7b52c9', '#5fa832', '#c0392b', '#d39a2b', '#00897b', '#8e6cc4', '#5c6bc0', '#e57373'];
+
+function renderTime() {
+  const d = S.tday, day = dayOf(d), work = day.work;
+  const dt = new Date(d + 'T12:00');
+  $('#tDate').textContent = `${WDL[dt.getDay()]}, ${fmtDate(d)}`;
+  $('#tToday').classList.toggle('hidden', d === todayIso());
+  if (document.activeElement !== $('#tWork')) $('#tWork').value = work != null ? fmtHM(work) : '';
+  const items = day.items || [];
+  const sum = items.reduce((a, i) => a + (i.min || 0), 0);
+  const base = work || TARGET;
+  const rest = (work ?? 0) - sum;
+  // Balken
+  $('#tBar').innerHTML = items.map((i, k) => `<i style="width:${Math.min(100, (i.min || 0) / Math.max(base, sum) * 100)}%;background:${TCOL[k % TCOL.length]}" title="${esc(task(i.taskId)?.title || '')}"></i>`).join('')
+    + (rest > 0 ? `<i class="rest" style="width:${rest / Math.max(base, sum) * 100}%" title="Admin / Support"></i>` : '');
+  $('#timeTabSum').textContent = sum ? fmtHM(sum) : '';
+  if (!S.tEdit && !$('#tItems').contains(document.activeElement)) {
+    $('#tItems').innerHTML = items.length ? items.map((i, k) => { const t = task(i.taskId); const pl = t ? pathLabel(t) : ''; return `
+      <div class="titem" data-id="${i.id}" style="--ic:${TCOL[k % TCOL.length]}">
+        <div class="ti-top"><span class="ti-title" data-open="${i.taskId}" title="Task öffnen">${esc(t?.title || '(gelöschter Task)')}</span><button class="x" data-tdel="${i.id}" title="Entfernen">${svg.x}</button></div>
+        ${pl ? `<div class="ti-path">${esc(pl)}</div>` : ''}
+        <div class="ti-row"><input class="ti-amt" value="${i.min ? fmtHM(i.min) : ''}" placeholder="1.5 / 1:30 / 20%" title="Stunden dezimal (1.5), h:mm (1:30), Minuten (90m) oder % der Arbeitszeit (20%)">
+          <span class="ti-pct">${i.min ? Math.round(i.min / base * 100) + '%' : ''}</span>
+          <input class="ti-com" value="${esc(i.comment || '')}" placeholder="Kommentar"></div>
+      </div>`; }).join('') : '<div class="muted small" style="padding:6px 2px">Noch nichts erfasst. Vorschlag unten anklicken oder Task suchen.</div>';
+  }
+  $('#tRest').innerHTML = work == null
+    ? `<span class="muted">Erfasst ${fmtHM(sum)} · Arbeitszeit oben eintragen</span>`
+    : rest >= 0 ? `<span>Admin / Support</span><b>${fmtHM(rest)}</b><span class="muted">${Math.round(rest / work * 100)}%</span>`
+    : `<span class="over">Überbucht um</span><b class="over">${fmtHM(-rest)}</b>`;
+  // Vorschläge
+  const booked = new Set(items.map(i => i.taskId));
+  const touched = (day.touched || []).filter(id => task(id) && !booked.has(id));
+  const motion = S.tasks.filter(t => t.status === 'In Motion' && !booked.has(t.id) && !touched.includes(t.id)).map(t => t.id);
+  const sug = [...touched.slice().reverse(), ...motion];
+  $('#tSugg').innerHTML = sug.length ? sug.map(id => `<button class="sugg ${touched.includes(id) ? 'touched' : ''}" data-sadd="${id}" title="${touched.includes(id) ? 'Heute geöffnet' : 'In Motion'}">+ ${esc(task(id).title || 'Ohne Titel')}</button>`).join('') : '<span class="muted small">Keine Vorschläge.</span>';
+  $('#taskList2').innerHTML = S.tasks.filter(t => t.title).map(t => `<option value="${esc(t.title)}">`).join('');
+}
+function addTimeItem(taskId) {
+  const day = dayOf(S.tday); if ((day.items || []).some(i => i.taskId === taskId)) return;
+  const id = uid(); saveDay(S.tday, { items: [...(day.items || []), { id, taskId, min: 0, comment: '' }] });
+  renderTime(); setTimeout(() => $(`#tItems [data-id="${id}"] .ti-amt`)?.focus(), 30);
+}
+function readTimeItems() {
+  const day = dayOf(S.tday), work = day.work;
+  return $$('#tItems .titem').map(r => { const old = (day.items || []).find(i => i.id === r.dataset.id) || {}; return { ...old, id: r.dataset.id, min: parseAmt(r.querySelector('.ti-amt').value, work), comment: r.querySelector('.ti-com').value.trim() }; });
+}
+$('#tItems').addEventListener('focusin', () => { S.tEdit = true; });
+$('#tItems').addEventListener('change', e => { if (e.target.matches('.ti-amt,.ti-com')) { saveDay(S.tday, { items: readTimeItems() }); renderTime(); } });
+$('#tItems').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('input')) { e.preventDefault(); e.target.blur(); } });
+$('#tItems').addEventListener('focusout', () => setTimeout(() => { if (!$('#tItems').contains(document.activeElement)) { S.tEdit = false; saveDay(S.tday, { items: readTimeItems() }); renderTime(); } }, 50));
+$('#tItems').addEventListener('click', e => {
+  const del = e.target.closest('[data-tdel]'); if (del) { saveDay(S.tday, { items: (dayOf(S.tday).items || []).filter(i => i.id !== del.dataset.tdel) }); renderTime(); return; }
+  const op = e.target.closest('[data-open]'); if (op && task(op.dataset.open)) openTask(op.dataset.open);
+});
+$('#tSugg').onclick = e => { const b = e.target.closest('[data-sadd]'); if (b) addTimeItem(b.dataset.sadd); };
+$('#tAdd').addEventListener('change', e => { const t = S.tasks.find(x => x.title === e.target.value); if (t) { addTimeItem(t.id); e.target.value = ''; } });
+$('#tAdd').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const q = e.target.value.toLowerCase(); const t = S.tasks.find(x => (x.title || '').toLowerCase() === q) || S.tasks.find(x => (x.title || '').toLowerCase().includes(q)); if (t && q) { addTimeItem(t.id); e.target.value = ''; } } });
+$('#tWork').addEventListener('change', e => { const v = e.target.value.trim(); saveDay(S.tday, { work: v ? parseAmt(v, TARGET) : null }); renderTime(); });
+$('#tWork').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } });
+$('#tPrev').onclick = () => { S.tday = addDays(S.tday, -1); renderTime(); };
+$('#tNext').onclick = () => { S.tday = addDays(S.tday, 1); renderTime(); };
+$('#tToday').onclick = () => { S.tday = todayIso(); renderTime(); };
+function setTimeCollapsed(v) { document.body.classList.toggle('time-collapsed', v); savePref('timeCollapsed', v); }
+setTimeCollapsed(!!loadPref('timeCollapsed', false));
+$('#btnTimeHide').onclick = () => setTimeCollapsed(true);
+$('#timeTab').onclick = () => setTimeCollapsed(false);
+
+/* ---------- Auswertung ---------- */
+function isoWeek(iso) { const d = new Date(iso + 'T12:00'); const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const dn = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - dn); const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return [t.getUTCFullYear(), Math.ceil(((t - y0) / 864e5 + 1) / 7)]; }
+function periodKey(iso, g) {
+  if (g === 'day') return [iso, fmtDate(iso)];
+  if (g === 'week') { const [y, w] = isoWeek(iso); return [`${y}-W${String(w).padStart(2, '0')}`, `KW ${w}/${String(y).slice(2)}`]; }
+  const [y, m] = iso.split('-');
+  if (g === 'month') return [`${y}-${m}`, `${m}.${y.slice(2)}`];
+  return [`${y}-Q${Math.ceil(m / 3)}`, `Q${Math.ceil(m / 3)}/${y.slice(2)}`];
+}
+function evalEntries(from, to) {
+  const out = [];
+  Object.keys(S.days).filter(d => d >= from && d <= to).sort().forEach(d => {
+    const day = S.days[d]; let sum = 0;
+    (day.items || []).forEach(i => {
+      if (!i.min) return; sum += i.min;
+      const t = task(i.taskId);
+      const pip = t ? pipOf(t) : '', pre = t ? prepipOf(t) : '';
+      out.push({ date: d, min: i.min, comment: i.comment || '', taskId: i.taskId, task: t?.title || '(gelöscht)',
+        pip: pip ? 'PIP ' + pip : 'ohne PIP', pre: pre ? 'PrePIP ' + pre : 'ohne PrePIP' });
+    });
+    if (day.work != null && day.work > sum) out.push({ date: d, min: day.work - sum, admin: true, task: 'Admin / Support', pip: 'Admin / Support', pre: 'Admin / Support' });
+  });
+  return out;
+}
+const ADMIN = 'Admin / Support';
+function renderEval() {
+  const from = $('#evFrom').value, to = $('#evTo').value; if (!from || !to) return;
+  const es = evalEntries(from, to);
+  const total = es.reduce((a, e) => a + e.min, 0);
+  const work = Object.keys(S.days).filter(d => d >= from && d <= to).reduce((a, d) => a + (S.days[d].work || 0), 0);
+  $('#evSum').innerHTML = `Total erfasst <b>${fmtH(total)}</b> · Arbeitszeit <b>${fmtH(work)}</b> · Tage <b>${new Set(es.map(e => e.date)).size}</b>`;
+  // Baum PIP > PrePIP > Task
+  const tree = new Map();
+  es.forEach(e => {
+    const a = tree.get(e.pip) || tree.set(e.pip, { min: 0, ch: new Map() }).get(e.pip); a.min += e.min;
+    if (e.admin) return;
+    const b = a.ch.get(e.pre) || a.ch.set(e.pre, { min: 0, ch: new Map() }).get(e.pre); b.min += e.min;
+    const c = b.ch.get(e.task) || b.ch.set(e.task, { min: 0, com: [] }).get(e.task); c.min += e.min; if (e.comment) c.com.push(fmtDate(e.date) + ': ' + e.comment);
+  });
+  const sortM = m => [...m.entries()].sort((x, y) => (x[0] === ADMIN) - (y[0] === ADMIN) || y[1].min - x[1].min);
+  const bar = m => `<span class="evbar"><i style="width:${total ? m / total * 100 : 0}%"></i></span><b>${fmtH(m)}</b><span class="muted">${total ? Math.round(m / total * 100) : 0}%</span>`;
+  $('#evTree').innerHTML = total ? sortM(tree).map(([k, a]) => a.ch.size ? `
+    <details class="ev-l1" ${S.evOpen.has(k) ? 'open' : ''} data-k="${esc(k)}"><summary><span class="evn">${esc(k)}</span>${bar(a.min)}</summary>
+      ${sortM(a.ch).map(([k2, b]) => `<details class="ev-l2" ${S.evOpen.has(k + '|' + k2) ? 'open' : ''} data-k="${esc(k + '|' + k2)}"><summary><span class="evn">${esc(k2)}</span>${bar(b.min)}</summary>
+        ${sortM(b.ch).map(([k3, c]) => `<div class="ev-l3" title="${esc(c.com.join('\n'))}"><span class="evn">${esc(k3)}${c.com.length ? ' <span class="muted">💬' + c.com.length + '</span>' : ''}</span>${bar(c.min)}</div>`).join('')}
+      </details>`).join('')}
+    </details>` : `<div class="ev-l1 flat ${k === ADMIN ? 'admin' : ''}"><span class="evn">${esc(k)}</span>${bar(a.min)}</div>`).join('') : '<div class="muted" style="padding:20px">Keine Zeiten im gewählten Zeitraum.</div>';
+  // Zeitverlauf
+  const g = $('#evGran').value, lvl = $('#evLevel').value;
+  const per = new Map(); es.forEach(e => { const [k, l] = periodKey(e.date, g); per.set(k, l); });
+  const cols = [...per.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  const rows = new Map();
+  es.forEach(e => {
+    const key = lvl === 'pip' ? e.pip : lvl === 'pre' ? (e.admin ? ADMIN : e.pip + ' › ' + e.pre) : (e.admin ? ADMIN : e.pip + ' › ' + e.pre + ' › ' + e.task);
+    const r = rows.get(key) || rows.set(key, { tot: 0, c: {} }).get(key); const [pk] = periodKey(e.date, g);
+    r.c[pk] = (r.c[pk] || 0) + e.min; r.tot += e.min;
+  });
+  const colTot = {}; es.forEach(e => { const [pk] = periodKey(e.date, g); colTot[pk] = (colTot[pk] || 0) + e.min; });
+  const sr = [...rows.entries()].sort((a, b) => (a[0] === ADMIN) - (b[0] === ADMIN) || b[1].tot - a[1].tot);
+  $('#evTime').innerHTML = total ? `<table class="evt"><thead><tr><th>${lvl === 'pip' ? 'PIP' : lvl === 'pre' ? 'PIP › PrePIP' : 'PIP › PrePIP › Task'}</th>${cols.map(([, l]) => `<th>${l}</th>`).join('')}<th>Total</th></tr></thead>
+    <tbody>${sr.map(([k, r]) => `<tr class="${k === ADMIN ? 'admin' : ''}"><td>${esc(k)}</td>${cols.map(([pk]) => `<td>${r.c[pk] ? fmtHM(r.c[pk]) : ''}</td>`).join('')}<td><b>${fmtHM(r.tot)}</b></td></tr>`).join('')}</tbody>
+    <tfoot><tr><td>Total</td>${cols.map(([pk]) => `<td>${fmtHM(colTot[pk])}</td>`).join('')}<td>${fmtHM(total)}</td></tr></tfoot></table>` : '';
+  // PrePIP -> PIP Zuordnung
+  const pres = new Map();
+  S.tasks.forEach(t => linkNrs(t, 'Jira PrePIP').forEach(n => { if (!pres.has(n)) pres.set(n, []); pres.get(n).push(t.title); }));
+  if (!$('#evMap').contains(document.activeElement)) {
+    $('#evMap').innerHTML = pres.size ? [...pres.entries()].sort().map(([n, ts]) => {
+      const auto = S.tasks.find(x => linkNrs(x, 'Jira PrePIP').includes(n) && linkNrs(x, 'Jira PIP')[0]);
+      const autoPip = auto ? linkNrs(auto, 'Jira PIP')[0] : '';
+      return `<div class="mrow"><span class="mpre">PrePIP ${esc(n)}</span><span class="muted small mt">${esc(ts.slice(0, 3).join(', '))}${ts.length > 3 ? ' …' : ''}</span>
+        <label class="mini">PIP <input data-pre="${esc(n)}" value="${esc(S.pmap[n]?.pip || '')}" placeholder="${autoPip ? 'auto ' + autoPip : 'Nr.'}" inputmode="numeric"></label></div>`;
+    }).join('') : '<div class="muted small">Noch keine Jira PrePIP-Links.</div>';
+  }
+}
+$('#evMap').addEventListener('change', e => { const i = e.target.closest('[data-pre]'); if (!i) return; const v = i.value.replace(/\D/g, ''); store.put('prepipmap', i.dataset.pre, { pip: v }); S.pmap[i.dataset.pre] = { pip: v }; renderEval(); });
+$('#evTree').addEventListener('toggle', e => { const d = e.target.closest('details'); if (!d) return; d.open ? S.evOpen.add(d.dataset.k) : S.evOpen.delete(d.dataset.k); }, true);
+function evPreset(p) {
+  const t = new Date(); let a, b = isoOf(t);
+  if (p === 'week') { const d = new Date(t); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); a = isoOf(d); }
+  if (p === 'month') a = isoOf(new Date(t.getFullYear(), t.getMonth(), 1));
+  if (p === 'lmonth') { a = isoOf(new Date(t.getFullYear(), t.getMonth() - 1, 1)); b = isoOf(new Date(t.getFullYear(), t.getMonth(), 0)); }
+  if (p === 'quarter') a = isoOf(new Date(t.getFullYear(), Math.floor(t.getMonth() / 3) * 3, 1));
+  if (p === 'year') a = isoOf(new Date(t.getFullYear(), 0, 1));
+  $('#evFrom').value = a; $('#evTo').value = b; $$('#evPresets button').forEach(x => x.classList.toggle('on', x.dataset.p === p)); renderEval();
+}
+$('#evPresets').onclick = e => { const b = e.target.closest('[data-p]'); if (b) evPreset(b.dataset.p); };
+['#evFrom', '#evTo', '#evGran', '#evLevel'].forEach(s => $(s).addEventListener('change', () => { if (s === '#evFrom' || s === '#evTo') $$('#evPresets button').forEach(x => x.classList.remove('on')); renderEval(); }));
+$('#btnEval').onclick = () => { $('#evalModal').classList.remove('hidden'); $('#drawerBg').classList.remove('hidden'); if (!$('#evFrom').value) evPreset('month'); else renderEval(); };
+const closeEval = () => { $('#evalModal').classList.add('hidden'); if (!S.openId && $('#recModal').classList.contains('hidden')) $('#drawerBg').classList.add('hidden'); };
+$('#btnEvalClose').onclick = closeEval;
+$('#btnEvCsv').onclick = () => {
+  const es = evalEntries($('#evFrom').value, $('#evTo').value);
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const csv = ['Datum;PIP;PrePIP;Task;Minuten;Stunden;Kommentar', ...es.map(e => [e.date, e.pip, e.pre, e.task, e.min, (e.min / 60).toFixed(2).replace('.', ','), e.comment || ''].map(q).join(';'))].join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })); a.download = `m-core-zeit_${$('#evFrom').value}_${$('#evTo').value}.csv`; a.click();
+};
+
 /* ================= Suche / Shortcuts ================= */
 $('#search').addEventListener('input', debounce(e => {
   const was = !!S.q; S.q = e.target.value.trim();
@@ -862,6 +1090,7 @@ document.addEventListener('keydown', e => {
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.activeElement.isContentEditable;
   if (e.key === 'Escape') {
     if (!$('#pop').classList.contains('hidden')) return hidePop();
+    if (!$('#evalModal').classList.contains('hidden')) { if (typing) document.activeElement.blur(); return closeEval(); }
     if (!$('#recModal').classList.contains('hidden')) { if (typing) document.activeElement.blur(); return closeRec(); }
     if (S.openId) { if (typing) document.activeElement.blur(); return closeTask(); }
     if (document.activeElement === $('#search')) { $('#search').value = ''; S.q = ''; renderSidebar(); renderList(); $('#search').blur(); }
@@ -908,9 +1137,13 @@ $('#importFile').onchange = async e => {
   if (!store.signOut) $('#btnLogout').classList.add('hidden');
   $('#modeBadge').textContent = store.mode.startsWith('LOCAL') ? '⚠ ' + store.mode : '● online · offline-fähig';
 
-  store.sub('tasks', ts => { S.tasks = ts; renderSidebar(); renderList(); if (S.openId) renderDrawer(); });
+  store.sub('tasks', ts => { S.tasks = ts; renderSidebar(); renderList(); if (S.openId) renderDrawer(); if (S.tday) renderTime(); });
   store.sub('todos', td => { S.todos = td; renderTodos(); });
   let recInit = false;
+  S.tday = todayIso();
+  store.sub('timedays', ds => { S.days = Object.fromEntries(ds.map(d => [d.id, d])); renderTime(); if (!$('#evalModal').classList.contains('hidden')) renderEval(); });
+  store.sub('prepipmap', ms => { S.pmap = Object.fromEntries(ms.map(m => [m.id, m])); });
+  setInterval(() => { const t = todayIso(); if (S.lastToday && S.lastToday !== t && S.tday === S.lastToday) { S.tday = t; renderTime(); } S.lastToday = t; }, 60000);
   store.sub('recurring', rs => { S.recs = rs; renderRecs(); if (!recInit) { recInit = true; setTimeout(runRecurring, 1500); } });
   setInterval(runRecurring, 30 * 60 * 1000);
 })();
