@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=29';
+import { CONFIG } from './config.js?v=30';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -182,8 +182,9 @@ function linkGroups(urls) {
   return [...m.entries()].sort((a, b) => ORDER_T.indexOf(a[0]) - ORDER_T.indexOf(b[0]));
 }
 const isTeams = u => /^https:\/\/teams\.microsoft\.com\//i.test(u || '');
-const linkHref = u => isTeams(u) ? u.replace(/^https:\/\/teams\.microsoft\.com\//i, 'msteams:/') : u;
-const linkTarget = u => isTeams(u) ? '' : 'target="_blank" rel="noopener"';
+const isClaudeApp = u => /^https:\/\/claude\.ai\/(chat|project|new)\b/i.test(u || '');
+const linkHref = u => isTeams(u) ? u.replace(/^https:\/\/teams\.microsoft\.com\//i, 'msteams:/') : isClaudeApp(u) ? u.replace(/^https:\/\//i, 'claude://').replace(/[?#].*$/, '') : u;
+const linkTarget = u => isTeams(u) || isClaudeApp(u) ? '' : 'target="_blank" rel="noopener"';
 function personHits(t) {
   const q = S.q.toLowerCase(); if (!q) return '';
   const ps = (t.persons || []).filter(p => (p.name || '').toLowerCase().includes(q) || (p.role || '').toLowerCase().includes(q));
@@ -558,7 +559,7 @@ function renderChat(t) {
         : `<div class="mb" title="Doppelklick zum Bearbeiten">${clean(c.html)}</div>`}
     </div>`).join('') : '<div class="muted small">Noch keine Einträge.</div>';
   hydrate($('#chat'));
-  $$('#chat .mb a').forEach(a => { if (isTeams(a.href)) { a.href = linkHref(a.href); a.removeAttribute('target'); } else { a.target = '_blank'; a.rel = 'noopener'; } });
+  $$('#chat .mb a').forEach(a => { if (isTeams(a.href) || isClaudeApp(a.href)) { a.href = linkHref(a.href); a.removeAttribute('target'); } else { a.target = '_blank'; a.rel = 'noopener'; } });
 }
 function showChatEditor() { $('#chatEditor').classList.remove('hidden'); $('#chatInput').focus(); }
 function hideChatEditor() { S.editMsgId = null; $('#chatInput').innerHTML = ''; $('#chatEditor').classList.add('hidden'); }
@@ -811,7 +812,7 @@ const closeRec = () => { $('#recModal').classList.add('hidden'); if (!S.openId) 
 $('#btnRecClose').onclick = closeRec;
 
 document.addEventListener('click', e => {
-  const a = e.target.closest('a[href^="https://teams.microsoft.com/"]'); if (!a) return;
+  const a = e.target.closest('a[href^="https://teams.microsoft.com/"], a[href^="https://claude.ai/chat"], a[href^="https://claude.ai/project"]'); if (!a) return;
   e.preventDefault(); location.href = linkHref(a.href);
 }, true);
 
