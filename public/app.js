@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=30';
+import { CONFIG } from './config.js?v=31';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -163,7 +163,7 @@ function dlClass(iso) {
   return days < 0 ? 'over' : days <= 3 ? 'soon' : '';
 }
 function detectType(url) { for (const [re, t] of LINK_DETECT) if (re.test(url)) return t; return 'Others'; }
-function normUrl(u) { u = u.trim(); if (!u) return ''; if (!/^[a-z][a-z0-9+.-]*:/i.test(u)) u = 'https://' + u; return u; }
+function normUrl(u) { u = u.trim(); if (!u) return ''; if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(u)) return 'https://claude.ai/chat/' + u; if (/^claude:\/\/claude\.ai\//i.test(u)) return u.replace(/^claude:\/\//i, 'https://'); if (!/^[a-z][a-z0-9+.-]*:/i.test(u)) u = 'https://' + u; return u; }
 function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } }
 function linkify(text) { return esc(text).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>'); }
 function stripHtml(h) { const d = document.createElement('div'); d.innerHTML = h || ''; return d.textContent || ''; }
