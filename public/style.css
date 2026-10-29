@@ -597,3 +597,7 @@ input.req{border-color:#f3b78f!important}
 .tagbox .tag{width:100%;border-radius:10px;height:34px;padding:0 6px 0 4px}
 .tagbox .tag .tx{margin-left:auto}
 .tagbox input{min-width:0}
+
+/* v28 Einzug */
+.rte blockquote,.msg .mb blockquote,.todo .txt blockquote{margin:2px 0 2px 26px;padding:0;border:0}
+.rte ul ul,.mb ul ul,.todo .txt ul ul{margin:0}

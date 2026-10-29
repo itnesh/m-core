@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=27';
+import { CONFIG } from './config.js?v=28';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -597,6 +597,11 @@ document.addEventListener('keydown', e => {
 $('#btnSend').onclick = sendChat;
 $('#btnCancelEdit').onclick = () => { $('#chatInput').innerHTML = ''; $('#chatEditor').classList.add('hidden'); };
 $('#chatInput').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendChat(); } });
+// Tab / Shift+Tab = Einzug in allen Editoren
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Tab' || !e.target.closest?.('.rte')) return;
+  e.preventDefault(); document.execCommand(e.shiftKey ? 'outdent' : 'indent');
+});
 document.addEventListener('mousedown', e => {
   const b = e.target.closest('.toolbar [data-cmd]'); if (!b) return; e.preventDefault();
   const ed = b.closest('.editor')?.querySelector('.rte'); if (ed && !ed.contains(document.activeElement)) ed.focus();
@@ -635,7 +640,7 @@ $('#chat').addEventListener('click', e => {
 $('#chat').addEventListener('dblclick', e => { const mb = e.target.closest('.msg .mb'); if (mb && !e.target.closest('a,img')) startMsgEdit(mb.closest('.msg').dataset.id); });
 
 /* ================= 2do ================= */
-const TB = `<div class="toolbar"><button data-cmd="bold" title="Bold"><b>B</b></button><button data-cmd="italic" title="Italic"><i>I</i></button><button data-cmd="underline" title="Underline"><u>U</u></button><button data-cmd="insertUnorderedList" title="Liste">•</button><button data-cmd="createLink" title="Link">🔗</button><button data-color="fore" title="Schriftfarbe" class="cbtn"><span class="ca">A</span></button><button data-color="back" title="Hintergrundfarbe" class="cbtn"><span class="cm">▌</span></button>`;
+const TB = `<div class="toolbar"><button data-cmd="bold" title="Bold"><b>B</b></button><button data-cmd="italic" title="Italic"><i>I</i></button><button data-cmd="underline" title="Underline"><u>U</u></button><button data-cmd="insertUnorderedList" title="Liste">•</button><button data-cmd="outdent" title="Einzug verkleinern (Shift+Tab)">⇤</button><button data-cmd="indent" title="Einzug vergrössern (Tab)">⇥</button><button data-cmd="createLink" title="Link">🔗</button><button data-color="fore" title="Schriftfarbe" class="cbtn"><span class="ca">A</span></button><button data-color="back" title="Hintergrundfarbe" class="cbtn"><span class="cm">▌</span></button>`;
 function renderTodos() {
   if (S.editTodoId && document.querySelector('.todo-edit')?.contains(document.activeElement)) return;
   const open = S.todos.filter(t => !t.done).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
