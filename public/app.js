@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=28';
+import { CONFIG } from './config.js?v=29';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -16,8 +16,9 @@ const STATUS_TINT = { 'Ideas': 7, 'Queued': 7, 'In Motion': 0, 'Delivered': 8, '
 const STATUS_ORDER = { 'In Motion': 1, 'Queued': 2, 'Frozen': 3, 'Ideas': 4, 'Delivered': 5, 'Dropped': 6 };
 const DEFAULT_FILTER = ['Queued', 'In Motion', 'Frozen'];
 const PRIO = { 1: { n: 'High', c: '#B76E79' }, 2: { n: 'Medium', c: '#C7A76C' }, 3: { n: 'Low', c: '#7E9CB2' } };
-const LINK_TYPES = ['Jira PrePIP', 'Jira PIP', 'Octane', 'Onenote', 'Sharepoint', 'SNOW', 'Teams', 'Wiki', 'Others'];
+const LINK_TYPES = ['Jira PrePIP', 'Jira PIP', 'Octane', 'Onenote', 'Sharepoint', 'SNOW', 'Teams', 'Wiki', 'Claude', 'Others'];
 const LINK_DETECT = [
+  [/claude\.ai/i, 'Claude'],
   [/PREPIP/i, 'Jira PrePIP'], [/[\/=]PIP-\d/i, 'Jira PIP'],
   [/atlassian|jira/i, 'Jira PrePIP'], [/octane|almoctane|microfocus/i, 'Octane'], [/onenote|1drv\.ms\/o|onenote:/i, 'Onenote'],
   [/teams\.microsoft|teams\.live/i, 'Teams'], [/service-?now|snow/i, 'SNOW'], [/confluence|wiki/i, 'Wiki'],
@@ -175,7 +176,7 @@ function waitText(t) {
   const ps = t.persons || [];
   return waitsOf(t).map(w => { const n = ps.find(p => p.id === w.personId)?.name; return [n, w.reason].filter(Boolean).join(': '); }).filter(Boolean).join(' · ') || 'wartet';
 }
-const ORDER_T = ['Teams', 'Jira PrePIP', 'Jira PIP', 'Octane', 'SNOW', 'Sharepoint', 'Onenote', 'Wiki', 'Others'];
+const ORDER_T = ['Teams', 'Jira PrePIP', 'Jira PIP', 'Octane', 'SNOW', 'Sharepoint', 'Onenote', 'Wiki', 'Claude', 'Others'];
 function linkGroups(urls) {
   const m = new Map(); urls.forEach(u => { const k = typeOf(u); (m.get(k) || m.set(k, []).get(k)).push(u); });
   return [...m.entries()].sort((a, b) => ORDER_T.indexOf(a[0]) - ORDER_T.indexOf(b[0]));
