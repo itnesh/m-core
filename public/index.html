@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=31">
+<link rel="stylesheet" href="style.css?v=32">
 </head>
 <body>
 
@@ -58,6 +58,8 @@
       <div class="board-head">
         <h2 id="listTitle">Tasks</h2>
         <span id="listCount" class="muted"></span>
+        <span class="grow"></span>
+        <div id="favSeg" class="seg favseg"><button data-f="all">Alle</button><button data-f="fav"><span class="favi"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg></span>Favoriten</button></div>
       </div>
       <div id="taskList" class="task-list"></div>
     </main>
@@ -124,6 +126,7 @@
 <div id="drawerBg" class="drawer-bg hidden"></div>
 <section id="drawer" class="drawer hidden" aria-hidden="true">
   <header class="drawer-head">
+    <button id="btnFav" class="fav big" title="Favorit"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg></button>
     <input id="fTitle" class="title-input" placeholder="Titel">
     <div class="drawer-actions">
       <button id="btnDup" class="icon-btn" title="Task duplizieren">
@@ -256,6 +259,6 @@
 <div id="pop" class="pop hidden"></div>
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="app.js?v=31"></script>
+<script type="module" src="app.js?v=32"></script>
 </body>
 </html>

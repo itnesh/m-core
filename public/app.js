@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=31';
+import { CONFIG } from './config.js?v=32';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -223,6 +223,7 @@ function visibleTasks() {
   const q = S.q.toLowerCase();
   return S.tasks
     .filter(t => { const F = activeFilter(); return !F.size || F.has(t.status); })
+    .filter(t => !S.favOnly || t.fav)
     .filter(t => !q || [t.title, t.description,
       ...(t.urls || []).flatMap(u => [u.title, u.url, typeOf(u)]),
       ...(t.chats || []).map(c => stripHtml(c.html)),
@@ -238,7 +239,7 @@ function visibleTasks() {
 
 function renderList() {
   const list = visibleTasks();
-  $('#listCount').textContent = `${list.length} von ${S.tasks.length}`;
+  $('#listCount').textContent = `${list.length} von ${S.tasks.length}${S.favOnly ? ' · nur Favoriten' : ''}`;
   if (!list.length) {
     $('#taskList').innerHTML = `<div class="empty">${S.tasks.length ? 'Keine Treffer für Filter/Suche.' : 'Noch keine Tasks. <b>N</b> drücken oder „+ Neu“.'}</div>`;
     return;
@@ -251,7 +252,7 @@ function renderList() {
     <article class="task" data-id="${t.id}" style="--tc:${STATUS_COLOR[t.status] || '#fff'};--tp:${STATUS_TINT[t.status] ?? 0}%">
       <div class="bar" style="--pc:${p.c}" data-act="prio" title="Prio: ${p.n}"></div>
       <div class="main">
-        <div class="ttl ${t.title ? '' : 'empty-ttl'}">${t.recurNew ? '<span class="recnew" title="Neu aus Recurring">!</span>' : ''}${t.recId ? '<span class="recicon" title="Recurring">↻</span>' : ''}${esc(t.title || 'Ohne Titel')}</div>
+        <div class="ttl ${t.title ? '' : 'empty-ttl'}"><button class="fav ${t.fav ? 'on' : ''}" data-act="fav" title="${t.fav ? 'Favorit entfernen' : 'Als Favorit markieren'}"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg></button>${t.recurNew ? '<span class="recnew" title="Neu aus Recurring">!</span>' : ''}${t.recId ? '<span class="recicon" title="Recurring">↻</span>' : ''}${esc(t.title || 'Ohne Titel')}</div>
         ${personHits(t)}${t.status === 'Frozen' && waitsOf(t).length ? `<div class="desc waitline">⏸ ${esc(waitText(t))}</div>`
           : t.description ? `<div class="desc">${esc(t.description)}</div>` : ''}
       </div>
@@ -274,6 +275,7 @@ $('#taskList').addEventListener('click', e => {
   if (act === 'prog') return progPop(e.target.closest('[data-act]'), id);
   if (act === 'prio') return prioPop(e.target.closest('[data-act]'), id);
   if (act === 'links') return linksPop(e.target.closest('[data-act]'), id);
+  if (act === 'fav') { const t = task(id); return upd(id, { fav: !t.fav }); }
   openTask(id);
 });
 
@@ -345,6 +347,11 @@ function closeTask() {
 }
 $('#btnClose').onclick = closeTask;
 $('#drawerBg').onclick = () => { if (!$('#evalModal').classList.contains('hidden')) return closeEval(); if (!$('#recModal').classList.contains('hidden')) return closeRec(); closeTask(); };
+$('#btnFav').onclick = () => { const t = task(S.openId); if (t) upd(t.id, { fav: !t.fav }); };
+S.favOnly = !!loadPref('favOnly', false);
+function renderFavSeg() { $$('#favSeg button').forEach(b => b.classList.toggle('on', (b.dataset.f === 'fav') === S.favOnly)); }
+renderFavSeg();
+$('#favSeg').onclick = e => { const b = e.target.closest('[data-f]'); if (!b) return; S.favOnly = b.dataset.f === 'fav'; savePref('favOnly', S.favOnly); renderFavSeg(); renderList(); };
 $('#btnDup').onclick = async () => {
   const t = task(S.openId); if (!t) return;
   const name = prompt('Name des neuen Tasks', (t.title || 'Ohne Titel') + ' (Kopie)');
@@ -376,6 +383,7 @@ function setVal(el, v) { if (document.activeElement !== el) el.value = v ?? ''; 
 function renderDrawer(full = false) {
   const t = task(S.openId);
   if (!t) { if (S.openId && !full) closeTask(); return; }
+  $('#btnFav').classList.toggle('on', !!t.fav); $('#btnFav').title = t.fav ? 'Favorit entfernen' : 'Als Favorit markieren';
   setVal($('#fTitle'), t.title);
   setVal($('#fDesc'), t.description);
   setVal($('#fStatus'), t.status);

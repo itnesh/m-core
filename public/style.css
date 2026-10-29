@@ -601,3 +601,18 @@ input.req{border-color:#f3b78f!important}
 /* v28 Einzug */
 .rte blockquote,.msg .mb blockquote,.todo .txt blockquote{margin:2px 0 2px 26px;padding:0;border:0}
 .rte ul ul,.mb ul ul,.todo .txt ul ul{margin:0}
+
+/* v32 Favoriten */
+.board-head{align-items:center}
+.board-head .grow{flex:1}
+.fav{display:inline-grid;place-items:center;width:22px;height:22px;margin:-2px 6px 0 0;vertical-align:middle;border-radius:6px;color:#b8bec7}
+.fav svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8}
+.fav:hover{color:#e0a100;background:#fff7dc}
+.fav.on{color:#f0b400}
+.fav.on svg{fill:#f5c400;stroke:#e0a100}
+.fav.big{width:34px;height:34px;margin:0}
+.fav.big svg{width:22px;height:22px}
+.favseg{width:auto}
+.favseg button{flex:none;padding:0 14px;height:32px;display:inline-flex;align-items:center;gap:6px}
+.favseg button.on{background:var(--text);color:#fff}
+.favseg .favi svg{width:14px;height:14px;fill:#f5c400;stroke:#e0a100;stroke-width:1.8}
