@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=32';
+import { CONFIG } from './config.js?v=33';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -177,6 +177,7 @@ function waitText(t) {
   return waitsOf(t).map(w => { const n = ps.find(p => p.id === w.personId)?.name; return [n, w.reason].filter(Boolean).join(': '); }).filter(Boolean).join(' · ') || 'wartet';
 }
 const ORDER_T = ['Teams', 'Jira PrePIP', 'Jira PIP', 'Octane', 'SNOW', 'Sharepoint', 'Onenote', 'Wiki', 'Claude', 'Others'];
+const byTitle = (a, b) => dispTitle(a).localeCompare(dispTitle(b), 'de', { numeric: true, sensitivity: 'base' });
 function linkGroups(urls) {
   const m = new Map(); urls.forEach(u => { const k = typeOf(u); (m.get(k) || m.set(k, []).get(k)).push(u); });
   return [...m.entries()].sort((a, b) => ORDER_T.indexOf(a[0]) - ORDER_T.indexOf(b[0]));
@@ -303,7 +304,7 @@ function progPop(a, id) {
     .onclick = e => { const b = e.target.closest('button'); if (b) { upd(id, { progress: +b.dataset.v }); hidePop(); } };
 }
 function linksPop(a, id) {
-  const ty = a.dataset.ty; const us = (task(id).urls || []).filter(u => (typeOf(u)) === ty);
+  const ty = a.dataset.ty; const us = (task(id).urls || []).filter(u => (typeOf(u)) === ty).sort(byTitle);
   showPop(a, us.map(u => `<a class="pl" href="${esc(linkHref(u.url))}" ${linkTarget(u.url)}><img src="${ICON(ty)}" alt=""><span>${esc(dispTitle(u))}</span></a>`).join(''), 'links')
     .onclick = e => { if (e.target.closest('a')) setTimeout(hidePop, 50); };
 }
@@ -484,7 +485,7 @@ function renderLinks(t) {
   if (S.linkFilter && !types.includes(S.linkFilter)) S.linkFilter = null;
   $('#linkFilter').innerHTML = types.length > 1 ? `<button class="chip ${!S.linkFilter ? 'on' : ''}" data-lf="">Alle ${all.length}</button>` +
     types.map(x => `<button class="chip ${S.linkFilter === x ? 'on' : ''}" data-lf="${x}"><img src="${ICON(x)}" alt="">${x} ${all.filter(u => (typeOf(u)) === x).length}</button>`).join('') : '';
-  const urls = S.linkFilter ? all.filter(u => (typeOf(u)) === S.linkFilter) : all;
+  const urls = (S.linkFilter ? all.filter(u => (typeOf(u)) === S.linkFilter) : all).slice().sort(byTitle);
   $('#links').innerHTML = urls.length ? urls.map(u => u.id === S.editLinkId ? `
     <div class="lnk-edit" data-id="${u.id}">
       <input data-f="title" value="${esc(isJira(typeOf(u)) ? nrOf(u) : u.title)}" placeholder="${isJira(typeOf(u)) ? 'Nummer (Pflicht)' : 'Titel'}">
