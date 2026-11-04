@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=33';
+import { CONFIG } from './config.js?v=34';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -468,7 +468,9 @@ $('#waits').addEventListener('change', () => upd(S.openId, { waits: readWaits() 
 $('#waits').addEventListener('focusout', () => setTimeout(() => { if (!$('#waits').contains(document.activeElement)) renderWaits(task(S.openId)); }, 50));
 $('#waits').addEventListener('click', e => {
   const d = e.target.closest('[data-wdel]'); if (!d) return;
-  const t = task(S.openId); upd(t.id, { waits: waitsOf(t).filter(w => w.id !== d.dataset.wdel) });
+  e.preventDefault();
+  d.closest('.wrow')?.remove(); document.activeElement?.blur();
+  upd(S.openId, { waits: readWaits() });
   setTimeout(() => renderWaits(task(S.openId)), 0);
 });
 $('#btnAddWait').onclick = () => {
