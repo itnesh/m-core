@@ -616,3 +616,5 @@ input.req{border-color:#f3b78f!important}
 .favseg button{flex:none;padding:0 14px;height:32px;display:inline-flex;align-items:center;gap:6px}
 .favseg button.on{background:var(--text);color:#fff}
 .favseg .favi svg{width:14px;height:14px;fill:#f5c400;stroke:#e0a100;stroke-width:1.8}
+
+.ti-title.free{color:#5f7d95;font-style:italic}

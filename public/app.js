@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=34';
+import { CONFIG } from './config.js?v=35';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -998,7 +998,7 @@ function renderTime() {
   if (!S.tEdit && !$('#tItems').contains(document.activeElement)) {
     $('#tItems').innerHTML = items.length ? items.map((i, k) => { const t = task(i.taskId); const pl = t ? pathLabel(t) : ''; return `
       <div class="titem" data-id="${i.id}" style="--ic:${TCOL[k % TCOL.length]}">
-        <div class="ti-top"><span class="ti-title" data-open="${i.taskId}" title="Task öffnen">${esc(t?.title || '(gelöschter Task)')}</span><button class="x" data-tdel="${i.id}" title="Entfernen">${svg.x}</button></div>
+        <div class="ti-top">${t ? `<span class="ti-title" data-open="${i.taskId}" title="Task öffnen">${esc(t.title || 'Ohne Titel')}</span>` : i.label ? `<span class="ti-title nolink free" title="Freitext">✎ ${esc(i.label)}</span>` : `<span class="ti-title nolink">(gelöschter Task)</span>`}<button class="x" data-tdel="${i.id}" title="Entfernen">${svg.x}</button></div>
         ${pl ? `<div class="ti-path">${esc(pl)}</div>` : ''}
         <div class="ti-row"><input class="ti-amt" value="${i.min ? fmtHM(i.min) : ''}" placeholder="1.5 / 1:30 / 20%" title="Stunden dezimal (1.5), h:mm (1:30), Minuten (90m) oder % der Arbeitszeit (20%)">
           <span class="ti-pct">${i.min ? Math.round(i.min / base * 100) + '%' : ''}</span>
@@ -1018,9 +1018,9 @@ function renderTime() {
   $('#tSugg').innerHTML = sug.length ? sug.map(id => `<button class="sugg ${touched.includes(id) ? 'touched' : ''}" data-sadd="${id}" title="${touched.includes(id) ? 'Heute geöffnet' : 'In Motion'}">+ ${esc(task(id).title || 'Ohne Titel')}</button>`).join('') : '<span class="muted small">Keine Vorschläge.</span>';
   $('#taskList2').innerHTML = S.tasks.filter(t => t.title).map(t => `<option value="${esc(t.title)}">`).join('');
 }
-function addTimeItem(taskId) {
-  const day = dayOf(S.tday); if ((day.items || []).some(i => i.taskId === taskId)) return;
-  const id = uid(); saveDay(S.tday, { items: [...(day.items || []), { id, taskId, min: 0, comment: '' }] });
+function addTimeItem(taskId, label = '') {
+  const day = dayOf(S.tday); if (taskId && (day.items || []).some(i => i.taskId === taskId)) return;
+  const id = uid(); saveDay(S.tday, { items: [...(day.items || []), taskId ? { id, taskId, min: 0, comment: '' } : { id, taskId: '', label, min: 0, comment: '' }] });
   renderTime(); setTimeout(() => $(`#tItems [data-id="${id}"] .ti-amt`)?.focus(), 30);
 }
 function readTimeItems() {
@@ -1051,7 +1051,13 @@ $('#tFixed').addEventListener('keydown', e => { if (e.key === 'Enter' && e.targe
 $('#tFixed').addEventListener('focusout', () => setTimeout(() => { if (!$('#tFixed').contains(document.activeElement)) { S.tfEdit = false; renderTime(); } }, 50));
 $('#tSugg').onclick = e => { const b = e.target.closest('[data-sadd]'); if (b) addTimeItem(b.dataset.sadd); };
 $('#tAdd').addEventListener('change', e => { const t = S.tasks.find(x => x.title === e.target.value); if (t) { addTimeItem(t.id); e.target.value = ''; } });
-$('#tAdd').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const q = e.target.value.toLowerCase(); const t = S.tasks.find(x => (x.title || '').toLowerCase() === q) || S.tasks.find(x => (x.title || '').toLowerCase().includes(q)); if (t && q) { addTimeItem(t.id); e.target.value = ''; } } });
+$('#tAdd').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return; e.preventDefault();
+  const raw = e.target.value.trim(); if (!raw) return;
+  const t = S.tasks.find(x => (x.title || '').toLowerCase() === raw.toLowerCase());
+  t ? addTimeItem(t.id) : addTimeItem('', raw); // kein exakter Task -> Freitext
+  e.target.value = '';
+});
 $('#tWork').addEventListener('change', e => { const v = e.target.value.trim(); saveDay(S.tday, { work: v ? parseAmt(v, TARGET) : null }); renderTime(); });
 $('#tWork').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } });
 $('#tPrev').onclick = () => { S.tday = addDays(S.tday, -1); renderTime(); };
@@ -1079,7 +1085,7 @@ function evalEntries(from, to) {
       if (!i.min) return; sum += i.min;
       const t = task(i.taskId);
       const pip = t ? pipOf(t) : '', pre = t ? prepipOf(t) : '';
-      const name = t?.title || '(gelöschter Task)';
+      const name = t?.title || i.label || '(gelöschter Task)';
       // Pfad: PIP > PrePIP > Task, fehlende Ebenen fallen weg
       const path = [pip && 'PIP ' + pip, pre && 'PrePIP ' + pre, name].filter(Boolean);
       out.push({ date: d, min: i.min, comment: i.comment || '', taskId: i.taskId, task: name, pip: pip ? 'PIP ' + pip : '', pre: pre ? 'PrePIP ' + pre : '', path });
