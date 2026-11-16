@@ -618,3 +618,20 @@ input.req{border-color:#f3b78f!important}
 .favseg .favi svg{width:14px;height:14px;fill:#f5c400;stroke:#e0a100;stroke-width:1.8}
 
 .ti-title.free{color:#5f7d95;font-style:italic}
+
+/* v36 Code-Snippets */
+.col-chat .col-head{gap:6px}
+.col-chat .col-head .grow{flex:1}
+.code-form{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;padding:10px;border:1px solid var(--blue);border-radius:12px;background:#f8fafc}
+.code-form textarea{font-family:Consolas,"Cascadia Code",Menlo,monospace;font-size:12.5px;min-height:220px;resize:vertical;white-space:pre;tab-size:4}
+.msg .snip{margin-top:2px}
+.msg .snip summary{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;padding:4px 2px;border-radius:6px}
+.msg .snip summary::-webkit-details-marker{display:none}
+.msg .snip summary:hover{background:#eef1f4}
+.snip-ic{font-family:Consolas,Menlo,monospace;font-size:11px;font-weight:700;color:#fff;background:#3b4250;border-radius:5px;padding:1px 6px}
+.snip-t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.snip-n{font-size:11.5px;color:var(--muted)}
+.snip-copy{font-size:11.5px;font-weight:600;color:var(--navy);padding:2px 8px;border:1px solid var(--line);border-radius:6px;background:#fff}
+.snip-copy:hover{border-color:var(--navy)}
+.msg .snip pre{margin:6px 0 2px;max-height:420px;overflow:auto;background:#1f2430;color:#e6e9ef;border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.45}
+.msg .snip pre code{font-family:Consolas,"Cascadia Code",Menlo,monospace;white-space:pre}

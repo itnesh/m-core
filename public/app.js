@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=35';
+import { CONFIG } from './config.js?v=36';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -227,7 +227,7 @@ function visibleTasks() {
     .filter(t => !S.favOnly || t.fav)
     .filter(t => !q || [t.title, t.description,
       ...(t.urls || []).flatMap(u => [u.title, u.url, typeOf(u)]),
-      ...(t.chats || []).map(c => stripHtml(c.html)),
+      ...(t.chats || []).flatMap(c => c.code ? [c.code.title, c.code.text] : [stripHtml(c.html)]),
       ...(t.persons || []).flatMap(p => [p.name, p.role]),
       ...waitsOf(t).map(w => w.reason)].some(v => (v || '').toLowerCase().includes(q)))
     .sort((a, b) =>
@@ -332,7 +332,7 @@ $('#fProg').innerHTML = Array.from({ length: 11 }, (_, i) => `<button data-v="${
 function openTask(id, focusTitle = false) {
   touchTask(id);
   if (task(id)?.recurNew) upd(id, { recurNew: false });
-  S.openId = id; S.editMsgId = null; S.editLinkId = null; S.linkFilter = null;
+  S.openId = id; S.editMsgId = null; S.editCodeId = null; $('#codeForm')?.classList.add('hidden'); S.editLinkId = null; S.linkFilter = null;
   $('#chatInput').innerHTML = '';
   $('#chatEditor').classList.add('hidden'); hideLinkForm();
   $('#drawer').classList.remove('hidden'); $('#drawerBg').classList.remove('hidden');
@@ -565,7 +565,8 @@ function renderChat(t) {
     <div class="msg ${c.id === S.editMsgId ? 'editing' : ''}" data-id="${c.id}">
       <div class="mh">${fmtTs(c.ts)}${c.edited ? ' · bearbeitet' : ''}
         <span class="acts"><button data-ca="edit" title="Bearbeiten">${svg.edit}</button><button data-ca="del" title="Löschen">${svg.del}</button></span></div>
-      ${c.id === S.editMsgId
+      ${c.code ? `<details class="snip"><summary><span class="snip-ic">&lt;/&gt;</span><b class="snip-t">${esc(c.code.title)}</b><span class="snip-n">${c.code.text.split('\n').length} Zeilen</span><button class="snip-copy" data-ca="copy" title="Code kopieren">Kopieren</button></summary><pre><code>${esc(c.code.text)}</code></pre></details>`
+      : c.id === S.editMsgId
         ? `<div class="editor msg-edit">${TB}<span class="grow"></span><button class="link-btn" data-ca="cancel">Abbrechen</button><button class="btn small primary" data-ca="save">Speichern</button></div><div class="rte" contenteditable="true">${clean(c.html)}</div></div>`
         : `<div class="mb" title="Doppelklick zum Bearbeiten">${clean(c.html)}</div>`}
     </div>`).join('') : '<div class="muted small">Noch keine Einträge.</div>';
@@ -648,8 +649,35 @@ $('#chat').addEventListener('click', e => {
   if (b.dataset.ca === 'del') { if (confirm('Eintrag löschen?')) { removeAtts(t.chats.find(c => c.id === mid)?.html); upd(t.id, { chats: t.chats.filter(c => c.id !== mid) }); } return; }
   if (b.dataset.ca === 'save') return finishMsgEdit(true);
   if (b.dataset.ca === 'cancel') return finishMsgEdit(false);
+  const cm = t.chats.find(c => c.id === mid);
+  if (b.dataset.ca === 'copy') { e.preventDefault(); e.stopPropagation(); navigator.clipboard.writeText(cm.code.text).then(() => toast('Code kopiert')); return; }
+  if (cm?.code) return openCodeForm(cm);
   startMsgEdit(mid);
 });
+// Code-Snippets
+function openCodeForm(c) {
+  S.editCodeId = c?.id || null;
+  $('#cTitle').value = c?.code.title || ''; $('#cText').value = c?.code.text || '';
+  $('#chatEditor').classList.add('hidden'); $('#codeForm').classList.remove('hidden');
+  (c ? $('#cText') : $('#cTitle')).focus();
+}
+const closeCodeForm = () => { S.editCodeId = null; $('#cTitle').value = ''; $('#cText').value = ''; $('#codeForm').classList.add('hidden'); };
+$('#btnCodeNew').onclick = () => openCodeForm(null);
+$('#btnCodeCancel').onclick = closeCodeForm;
+$('#btnCodeSave').onclick = () => {
+  const title = $('#cTitle').value.trim(), text = $('#cText').value.replace(/\s+$/, '');
+  if (!title) { toast('Titel ist Pflicht'); return $('#cTitle').focus(); }
+  if (!text) { toast('Code fehlt'); return $('#cText').focus(); }
+  const t = task(S.openId);
+  if (S.editCodeId) upd(t.id, { chats: t.chats.map(c => c.id === S.editCodeId ? { ...c, code: { title, text }, edited: Date.now() } : c) });
+  else upd(t.id, { chats: [...(t.chats || []), { id: uid(), ts: Date.now(), html: '', code: { title, text } }] });
+  closeCodeForm();
+};
+$('#cText').addEventListener('keydown', e => {
+  if (e.key === 'Tab') { e.preventDefault(); const s = e.target.selectionStart; e.target.setRangeText('    ', s, e.target.selectionEnd, 'end'); }
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $('#btnCodeSave').click(); }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && e.target.closest?.('#codeForm')) { e.preventDefault(); e.stopPropagation(); closeCodeForm(); } }, true);
 $('#chat').addEventListener('dblclick', e => { const mb = e.target.closest('.msg .mb'); if (mb && !e.target.closest('a,img')) startMsgEdit(mb.closest('.msg').dataset.id); });
 
 /* ================= 2do ================= */
