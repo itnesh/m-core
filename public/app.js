@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=36';
+import { CONFIG } from './config.js?v=37';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -490,8 +490,8 @@ function renderLinks(t) {
   const urls = (S.linkFilter ? all.filter(u => (typeOf(u)) === S.linkFilter) : all).slice().sort(byTitle);
   $('#links').innerHTML = urls.length ? urls.map(u => u.id === S.editLinkId ? `
     <div class="lnk-edit" data-id="${u.id}">
-      <input data-f="title" value="${esc(isJira(typeOf(u)) ? nrOf(u) : u.title)}" placeholder="${isJira(typeOf(u)) ? 'Nummer (Pflicht)' : 'Titel'}">
       <input data-f="url" value="${esc(u.url)}" placeholder="URL">
+      <input data-f="title" value="${esc(isJira(typeOf(u)) ? nrOf(u) : u.title)}" placeholder="${isJira(typeOf(u)) ? 'Nummer (Pflicht)' : 'Titel'}">
       <div class="row">
         <select data-f="type">${LINK_TYPES.map(x => `<option ${x === typeOf(u) ? 'selected' : ''}>${x}</option>`).join('')}</select>
         <button class="btn small primary" data-la="save">OK</button>
