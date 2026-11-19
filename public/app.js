@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=37';
+import { CONFIG } from './config.js?v=38';
 
 /* ================= Konstanten ================= */
 const STATUSES = ['Ideas', 'Queued', 'In Motion', 'Frozen', 'Delivered', 'Dropped'];
@@ -61,6 +61,8 @@ const svg = {
   edit: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
   del: '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>',
   x: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  arch: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10h14V9M10 13h4"/></svg>',
+  unarch: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10h14V9M12 18v-6M9.5 14.5 12 12l2.5 2.5"/></svg>',
   chat: '<svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
 };
 
@@ -560,16 +562,19 @@ $('#links').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target
 /* Chat */
 function renderChat(t) {
   if (S.editMsgId && document.querySelector('.msg-edit')?.contains(document.activeElement)) return;
-  const chats = [...(t.chats || [])].sort((a, b) => b.ts - a.ts);
+  const nArch = (t.chats || []).filter(c => c.archived).length;
+  $('#btnArch').innerHTML = `${svg.arch} Archiv${nArch ? ' ' + nArch : ''}`;
+  $('#btnArch').classList.toggle('on', !!S.showArch); $('#btnArch').classList.toggle('hidden', !nArch && !S.showArch);
+  const chats = [...(t.chats || [])].filter(c => S.showArch || !c.archived).sort((a, b) => b.ts - a.ts);
   $('#chat').innerHTML = chats.length ? chats.map(c => `
-    <div class="msg ${c.id === S.editMsgId ? 'editing' : ''}" data-id="${c.id}">
-      <div class="mh">${fmtTs(c.ts)}${c.edited ? ' · bearbeitet' : ''}
-        <span class="acts"><button data-ca="edit" title="Bearbeiten">${svg.edit}</button><button data-ca="del" title="Löschen">${svg.del}</button></span></div>
+    <div class="msg ${c.id === S.editMsgId ? 'editing' : ''} ${c.archived ? 'archived' : ''}" data-id="${c.id}">
+      <div class="mh">${fmtTs(c.ts)}${c.edited ? ' · bearbeitet' : ''}${c.archived ? ' · <b class="arch-l">archiviert</b>' : ''}
+        <span class="acts"><button data-ca="arch" title="${c.archived ? 'Aus Archiv holen' : 'Archivieren'}">${c.archived ? svg.unarch : svg.arch}</button><button data-ca="edit" title="Bearbeiten">${svg.edit}</button><button data-ca="del" title="Löschen">${svg.del}</button></span></div>
       ${c.code ? `<details class="snip"><summary><span class="snip-ic">&lt;/&gt;</span><b class="snip-t">${esc(c.code.title)}</b><span class="snip-n">${c.code.text.split('\n').length} Zeilen</span><button class="snip-copy" data-ca="copy" title="Code kopieren">Kopieren</button></summary><pre><code>${esc(c.code.text)}</code></pre></details>`
       : c.id === S.editMsgId
         ? `<div class="editor msg-edit">${TB}<span class="grow"></span><button class="link-btn" data-ca="cancel">Abbrechen</button><button class="btn small primary" data-ca="save">Speichern</button></div><div class="rte" contenteditable="true">${clean(c.html)}</div></div>`
         : `<div class="mb" title="Doppelklick zum Bearbeiten">${clean(c.html)}</div>`}
-    </div>`).join('') : '<div class="muted small">Noch keine Einträge.</div>';
+    </div>`).join('') : `<div class="muted small">${nArch ? 'Alle Einträge archiviert.' : 'Noch keine Einträge.'}</div>`;
   hydrate($('#chat'));
   $$('#chat .mb a').forEach(a => { if (isTeams(a.href) || isClaudeApp(a.href)) { a.href = linkHref(a.href); a.removeAttribute('target'); } else { a.target = '_blank'; a.rel = 'noopener'; } });
 }
@@ -647,6 +652,7 @@ $('#chat').addEventListener('click', e => {
   const b = e.target.closest('[data-ca]'); if (!b) return;
   const mid = b.closest('.msg').dataset.id; const t = task(S.openId);
   if (b.dataset.ca === 'del') { if (confirm('Eintrag löschen?')) { removeAtts(t.chats.find(c => c.id === mid)?.html); upd(t.id, { chats: t.chats.filter(c => c.id !== mid) }); } return; }
+  if (b.dataset.ca === 'arch') { const c0 = t.chats.find(c => c.id === mid); upd(t.id, { chats: t.chats.map(c => c.id === mid ? { ...c, archived: !c0.archived } : c) }); toast(c0.archived ? 'Aus Archiv geholt' : 'Archiviert'); return; }
   if (b.dataset.ca === 'save') return finishMsgEdit(true);
   if (b.dataset.ca === 'cancel') return finishMsgEdit(false);
   const cm = t.chats.find(c => c.id === mid);
@@ -663,6 +669,8 @@ function openCodeForm(c) {
 }
 const closeCodeForm = () => { S.editCodeId = null; $('#cTitle').value = ''; $('#cText').value = ''; $('#codeForm').classList.add('hidden'); };
 $('#btnCodeNew').onclick = () => openCodeForm(null);
+S.showArch = !!loadPref('showArch', false);
+$('#btnArch').onclick = () => { S.showArch = !S.showArch; savePref('showArch', S.showArch); renderChat(task(S.openId)); };
 $('#btnCodeCancel').onclick = closeCodeForm;
 $('#btnCodeSave').onclick = () => {
   const title = $('#cTitle').value.trim(), text = $('#cText').value.replace(/\s+$/, '');
